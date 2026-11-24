@@ -127,7 +127,7 @@ struct ContentView: View {
             .background(Palette.canvas, in: RoundedRectangle(cornerRadius: 16))
             .padding(.bottom, 18)
             navigationButton(.settings)
-            Text("LIMPADOR  /  0.1").font(.system(size: 9, weight: .medium, design: .monospaced))
+            Text("LIMPADOR  /  " + AppIdentity.version).font(.system(size: 9, weight: .medium, design: .monospaced))
                 .foregroundStyle(Palette.muted).padding(.leading, 12).padding(.top, 20)
         }
         .padding(.horizontal, 18).padding(.top, 48).padding(.bottom, 24)
@@ -372,7 +372,7 @@ struct ContentView: View {
             heading("Do seu jeito.", subtitle: "Os primeiros ajustes do seu Limpador.")
             VStack(alignment: .leading, spacing: 22) {
                 Label("Sobre esta versão", systemImage: "info.circle").font(.system(size: 17, weight: .semibold))
-                Text("Limpador 0.1 · Swift + SwiftUI").font(.system(size: 13))
+                Text("Limpador " + AppIdentity.version + " · Swift + SwiftUI").font(.system(size: 13))
                 Text("Armazenamento, aplicativos e caches usam leituras reais. A limpeza exige revisão e confirmação para envio à Lixeira.").font(.system(size: 13)).foregroundStyle(Palette.muted).lineSpacing(5)
                 Divider()
                 Picker("Aparência", selection: $appearance) {

@@ -46,6 +46,7 @@ struct ContentView: View {
     @State private var dataApplication: InstalledApplication?
     @State private var inspectedApplication: InstalledApplication?
     @AppStorage("compactNumbers") private var compactNumbers = true
+    @AppStorage("showMenuBar") private var showMenuBar = true
     @AppStorage("appearance") private var appearance = "system"
     @AppStorage("scanOnLaunch") private var scanOnLaunch = true
     private var isScanning: Bool { cleaner.loading }
@@ -379,6 +380,7 @@ struct ContentView: View {
                     Text("Clara").tag("light")
                     Text("Escura").tag("dark")
                 }.pickerStyle(.segmented)
+                Toggle("Mostrar Limpador na barra de menus", isOn: $showMenuBar)
                 NotificationPreferencesView()
                 Divider()
                 AnalysisExclusionPreferences()

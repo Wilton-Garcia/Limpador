@@ -29,6 +29,7 @@ struct InstalledApplication: Identifiable, Sendable {
     let version: String?
     let size: PackageSize
     var bundleID: String? = nil
+    var buildVersion: String? = nil
     var id: String { url.path }
 }
 
@@ -83,7 +84,7 @@ enum MacInventory {
         var apps: [InstalledApplication] = []
         var issues: [String] = []
         var found = Set<String>()
-        var candidates: [(url: URL, name: String, version: String?, bundleID: String?)] = []
+        var candidates: [(url: URL, name: String, version: String?, bundleID: String?, build: String?)] = []
         await onProgress(InventoryProgress(stage: .discovering, completed: 0, total: 0, currentName: ""))
         let keys: Set<URLResourceKey> = [.isDirectoryKey, .isSymbolicLinkKey, .localizedNameKey]
         for root in roots {
@@ -117,7 +118,7 @@ enum MacInventory {
                     let name = bundle?.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
                         ?? bundle?.object(forInfoDictionaryKey: "CFBundleName") as? String
                         ?? url.deletingPathExtension().lastPathComponent
-                    candidates.append((url, name, bundle?.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String, bundle?.bundleIdentifier))
+                    candidates.append((url, name, bundle?.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String, bundle?.bundleIdentifier, bundle?.object(forInfoDictionaryKey: "CFBundleVersion") as? String))
                 } catch is CancellationError { throw CancellationError() }
                 catch { discoveryFailures += 1 }
             }
@@ -128,7 +129,7 @@ enum MacInventory {
             await onProgress(InventoryProgress(stage: .measuring, completed: index, total: candidates.count, currentName: candidate.name))
             try Task.checkCancellation()
             let size = try packageSize(at: candidate.url)
-            apps.append(InstalledApplication(url: candidate.url, name: candidate.name, version: candidate.version, size: size, bundleID: candidate.bundleID))
+            apps.append(InstalledApplication(url: candidate.url, name: candidate.name, version: candidate.version, size: size, bundleID: candidate.bundleID, buildVersion: candidate.build))
             await onProgress(InventoryProgress(stage: .measuring, completed: index + 1, total: candidates.count, currentName: candidate.name))
         }
         try Task.checkCancellation()

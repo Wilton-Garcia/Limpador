@@ -8,6 +8,7 @@ struct ApplicationDataView: View {
     @State private var report: ApplicationDataReport?
     @State private var error: String?
     @State private var resetting = false
+    @State private var checkingUpdates = false
     @State private var snapshot: BundleSnapshot?
     @State private var preparing = false
     @State private var confirming = false
@@ -21,6 +22,7 @@ struct ApplicationDataView: View {
                 Text(report.note).font(.caption).foregroundStyle(.secondary)
                 Text("Revise os dados abaixo antes de desinstalar. A desinstalação envia apenas o pacote .app à Lixeira; dados compartilhados nunca são removidos automaticamente.").font(.caption)
                 HStack {
+                    Button("Atualizações…") { checkingUpdates = true }
                     if app.bundleID != nil { Button("Configurações…") { resetting = true }.disabled(identityMatches != 1) }
                     Button("Preparar desinstalação", role: .destructive) { prepareUninstall() }.disabled(preparing || uninstallReport?.movedCount == 1)
                     if preparing { ProgressView().controlSize(.small); Button("Cancelar") { operation?.cancel() } }
@@ -49,6 +51,7 @@ struct ApplicationDataView: View {
             Button("Cancelar", role: .cancel) { snapshot = nil }
         } message: { Text(app.url.path + "\nSomente o pacote do aplicativo será enviado à Lixeira. Os dados associados permanecem para revisão individual.") }
         .onDisappear { operation?.cancel() }
+        .sheet(isPresented: $checkingUpdates) { ApplicationUpdatesView(app: app) }
         .sheet(isPresented: $resetting) { if let identifier = app.bundleID { PreferenceResetView(identifier: identifier, history: history) } }
         .sheet(item: $reviewing) { item in
             if item.isDirectory { FileReviewView(root: item.url, allowsRemoval: !item.shared, history: history) }

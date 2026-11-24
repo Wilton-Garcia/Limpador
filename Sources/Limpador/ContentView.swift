@@ -38,6 +38,7 @@ struct ContentView: View {
     @State private var search = ""
     @State private var applicationOrder: ApplicationQuery.Order = .name
     @State private var historicalReport: RemovalReport?
+    @State private var dataApplication: InstalledApplication?
     @State private var inspectedApplication: InstalledApplication?
     @AppStorage("compactNumbers") private var compactNumbers = true
     @AppStorage("appearance") private var appearance = "system"
@@ -78,6 +79,7 @@ struct ContentView: View {
                 if let historicalReport { RemovalReportView(report: historicalReport) }
             }.padding(24).frame(minWidth: 740, minHeight: 500)
         }
+        .sheet(item: $dataApplication) { app in ApplicationDataView(app: app) }
         .sheet(item: $inspectedApplication) { app in FileReviewView(root: app.url) }
         .task { if scanOnLaunch { await mac.refresh() } }
         .onDisappear { cleaner.cancel(); mac.cancel() }
@@ -285,7 +287,7 @@ struct ContentView: View {
                 } else {
                     LazyVStack(spacing: 0) {
                         ForEach(filtered) { app in
-                            ApplicationRow(app: app, compact: compactNumbers) { inspectedApplication = app }
+                            ApplicationRow(app: app, compact: compactNumbers, onInspect: { inspectedApplication = app }, onData: { dataApplication = app })
                             if app.id != filtered.last?.id { Divider() }
                         }
                     }.card()

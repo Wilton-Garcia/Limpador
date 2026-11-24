@@ -58,6 +58,7 @@ struct ApplicationRow: View {
     let app: InstalledApplication
     var compact = true
     var onInspect: () -> Void = {}
+    var onData: () -> Void = {}
     @State private var image: NSImage?
     var body: some View {
         HStack(spacing: 14) {
@@ -79,6 +80,7 @@ struct ApplicationRow: View {
                 Text(app.size.complete ? "Pacote · tamanho lógico" : "Parcial · \(app.size.unreadableEntries) falhas")
                     .font(.system(size: 10)).foregroundStyle(app.size.complete ? Color.secondary : .orange)
             }
+            Button("Dados", action: onData).buttonStyle(.borderless)
             Button("Arquivos", action: onInspect).buttonStyle(.borderless)
             Button { NSWorkspace.shared.activateFileViewerSelecting([app.url]) } label: {
                 Image(systemName: "folder")

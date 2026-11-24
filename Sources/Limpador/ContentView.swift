@@ -383,6 +383,8 @@ struct ContentView: View {
                 Toggle("Mostrar Limpador na barra de menus", isOn: $showMenuBar)
                 NotificationPreferencesView()
                 Divider()
+                AnalysisReminderPreferences()
+                Divider()
                 AnalysisExclusionPreferences()
                 Divider()
                 Toggle("Mostrar tamanhos compactos", isOn: $compactNumbers)

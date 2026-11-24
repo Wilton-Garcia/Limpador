@@ -4,6 +4,11 @@ struct AnalyzedFile: Identifiable, Sendable, Codable {
     let path: String
     let bytes: Int64
     let modifiedAt: Date?
+    let relativePath: String
+    init(path: String, bytes: Int64, modifiedAt: Date?, relativePath: String? = nil) {
+        self.path = path; self.bytes = bytes; self.modifiedAt = modifiedAt
+        self.relativePath = relativePath ?? URL(fileURLWithPath: path).lastPathComponent
+    }
     var id: String { path }
     var url: URL { URL(fileURLWithPath: path) }
     var category: String {
@@ -24,6 +29,13 @@ struct FileAnalysis: Sendable {
     let unreadableEntries: Int
     let observedAt: Date
     var bytes: Int64 { files.reduce(0) { $0 + $1.bytes } }
+    func distribution(byCategory: Bool) -> [(name: String, bytes: Int64)] {
+        let groups = Dictionary(grouping: files) { file in
+            byCategory ? file.category : (file.relativePath.contains("/") ? String(file.relativePath.split(separator: "/")[0]) : "Nesta pasta")
+        }
+        return groups.map { (name: $0.key, bytes: $0.value.reduce(0) { $0 + $1.bytes }) }
+            .sorted { $0.bytes == $1.bytes ? $0.name < $1.name : $0.bytes > $1.bytes }
+    }
 }
 
 enum FileAnalyzer {
@@ -44,7 +56,7 @@ enum FileAnalyzer {
                 let facts = try url.resourceValues(forKeys: keys)
                 guard facts.isSymbolicLink != true, facts.isRegularFile == true else { continue }
                 guard let bytes = facts.fileSize else { failures += 1; continue }
-                files.append(AnalyzedFile(path: url.path, bytes: Int64(bytes), modifiedAt: facts.contentModificationDate))
+                files.append(AnalyzedFile(path: url.path, bytes: Int64(bytes), modifiedAt: facts.contentModificationDate, relativePath: url.pathComponents.suffix(entries.level).joined(separator: "/")))
             } catch { failures += 1 }
         }
         try Task.checkCancellation()

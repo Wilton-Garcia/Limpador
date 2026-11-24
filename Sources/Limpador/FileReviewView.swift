@@ -2,6 +2,7 @@ import SwiftUI
 
 struct FileReviewView: View {
     let root: URL
+    var initialResult: FileAnalysis? = nil
     @Environment(\.dismiss) private var dismiss
     @State private var result: FileAnalysis?
     @State private var error: String?
@@ -62,6 +63,7 @@ struct FileReviewView: View {
             }
         }.padding(24).frame(minWidth: 760, minHeight: 540)
         .task(id: root) {
+            if let initialResult { result = initialResult; return }
             let worker = Task.detached(priority: .utility) { try FileAnalyzer.scan(root) }
             do {
                 let analysis = try await withTaskCancellationHandler { try await worker.value } onCancel: { worker.cancel() }

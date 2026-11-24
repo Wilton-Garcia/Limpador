@@ -288,6 +288,7 @@ struct ContentView: View {
 
     private var storage: some View {
         Group {
+            FolderUsageView()
             heading("Espaço para enxergar melhor.", subtitle: "Capacidade do volume que contém sua pasta pessoal, informada pelo macOS.")
             refreshBar
             if let disk = mac.disk {

@@ -16,6 +16,9 @@ struct FileAnalysisTests {
         #expect(scan.files.first?.path == file.path)
         #expect(scan.files.first?.modifiedAt != nil)
         #expect(scan.files.first?.category == "Imagens")
+        #expect(scan.files.first?.relativePath == "Nested/photo.png")
+        #expect(scan.distribution(byCategory: false).first?.name == "Nested")
+        #expect(scan.distribution(byCategory: true).first?.bytes == 123)
         #expect(scan.unreadableEntries == 0)
     }
 }

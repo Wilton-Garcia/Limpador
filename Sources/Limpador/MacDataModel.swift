@@ -7,25 +7,28 @@ final class MacDataModel {
     var inventory: ApplicationInventory?
     var inventoryError: String?
     var loading = false
-    var currentApplication = ""
+    var progress: InventoryProgress?
+    var cancelling = false
+    private var worker: Task<ApplicationInventory, Error>?
 
     func refresh() async {
         guard !loading else { return }
         loading = true
-        currentApplication = ""
+        progress = nil
         diskError = nil
         inventoryError = nil
-        defer { loading = false; currentApplication = "" }
+        defer { loading = false; progress = nil; worker = nil; cancelling = false }
         // A refresh replaces previous results so old observations never appear current.
         disk = nil
         inventory = nil
         do { disk = try DiskSnapshot.read() }
         catch { diskError = error.localizedDescription }
         let worker = Task.detached(priority: .utility) {
-            try await MacInventory.applications { name in
-                await self.setProgress(name)
+            try await MacInventory.applications { progress in
+                await self.setProgress(progress)
             }
         }
+        self.worker = worker
         do {
             let result = try await withTaskCancellationHandler {
                 try await worker.value
@@ -39,7 +42,13 @@ final class MacDataModel {
         } catch { inventoryError = error.localizedDescription }
     }
 
-    private func setProgress(_ name: String) { currentApplication = name }
+    func cancel() {
+        guard loading else { return }
+        cancelling = true
+        worker?.cancel()
+    }
+
+    private func setProgress(_ progress: InventoryProgress) { self.progress = progress }
 }
 
 struct ApplicationRow: View {

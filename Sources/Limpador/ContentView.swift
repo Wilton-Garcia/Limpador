@@ -85,7 +85,7 @@ struct ContentView: View {
             Text("Os resultados são exemplos. Nenhum arquivo foi acessado ou removido. A limpeza real estará disponível quando o motor de análise for implementado.")
         }
         .task { await mac.refresh() }
-        .onDisappear { cancelScan() }
+        .onDisappear { cancelScan(); mac.cancel() }
     }
 
     private var sidebar: some View {
@@ -337,10 +337,15 @@ struct ContentView: View {
         HStack(spacing: 12) {
             if mac.loading {
                 ProgressView().controlSize(.small)
-                Text(mac.currentApplication.isEmpty ? "Lendo dados do Mac…" : "Medindo " + mac.currentApplication + "…")
+                Text(mac.cancelling ? "Cancelando…" : mac.progress.map { $0.stage == .discovering ? "Localizando aplicativos…" : "Medindo \($0.currentName) · \($0.completed)/\($0.total)" } ?? "Lendo dados do Mac…")
                     .font(.system(size: 12)).foregroundStyle(Palette.muted).lineLimit(1)
             }
+            if let progress = mac.progress, progress.stage == .measuring, progress.total > 0 {
+                ProgressView(value: Double(progress.completed), total: Double(progress.total)).frame(width: 100)
+                    .accessibilityLabel("Aplicativos medidos")
+            }
             Spacer()
+            if mac.loading { Button("Cancelar") { mac.cancel() }.disabled(mac.cancelling) }
             Button { Task { await mac.refresh() } } label: { Label("Atualizar", systemImage: "arrow.clockwise") }
                 .disabled(mac.loading)
         }

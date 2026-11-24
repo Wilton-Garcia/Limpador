@@ -37,6 +37,14 @@ struct ApplicationInventory: Sendable {
     let observedAt: Date
 }
 
+struct InventoryProgress: Sendable, Equatable {
+    enum Stage: Sendable { case discovering, measuring }
+    let stage: Stage
+    let completed: Int
+    let total: Int
+    let currentName: String
+}
+
 enum MacInventory {
     static var defaultRoots: [URL] {
         [URL(fileURLWithPath: "/Applications"), URL(fileURLWithPath: "/System/Applications"),
@@ -69,11 +77,13 @@ enum MacInventory {
     }
 
     static func applications(roots: [URL] = defaultRoots,
-                             onProgress: @Sendable (String) async -> Void = { _ in }) async throws -> ApplicationInventory {
+                             onProgress: @Sendable (InventoryProgress) async -> Void = { _ in }) async throws -> ApplicationInventory {
         let manager = FileManager.default
         var apps: [InstalledApplication] = []
         var issues: [String] = []
         var found = Set<String>()
+        var candidates: [(url: URL, name: String, version: String?)] = []
+        await onProgress(InventoryProgress(stage: .discovering, completed: 0, total: 0, currentName: ""))
         let keys: Set<URLResourceKey> = [.isDirectoryKey, .isSymbolicLinkKey, .localizedNameKey]
         for root in roots {
             try Task.checkCancellation()
@@ -106,15 +116,21 @@ enum MacInventory {
                     let name = bundle?.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
                         ?? bundle?.object(forInfoDictionaryKey: "CFBundleName") as? String
                         ?? url.deletingPathExtension().lastPathComponent
-                    await onProgress(name)
-                    let size = try packageSize(at: url)
-                    apps.append(InstalledApplication(url: url, name: name,
-                        version: bundle?.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String, size: size))
+                    candidates.append((url, name, bundle?.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String))
                 } catch is CancellationError { throw CancellationError() }
                 catch { discoveryFailures += 1 }
             }
             if discoveryFailures > 0 { issues.append("\(root.path): \(discoveryFailures) entradas não puderam ser lidas.") }
         }
+        for (index, candidate) in candidates.enumerated() {
+            try Task.checkCancellation()
+            await onProgress(InventoryProgress(stage: .measuring, completed: index, total: candidates.count, currentName: candidate.name))
+            try Task.checkCancellation()
+            let size = try packageSize(at: candidate.url)
+            apps.append(InstalledApplication(url: candidate.url, name: candidate.name, version: candidate.version, size: size))
+            await onProgress(InventoryProgress(stage: .measuring, completed: index + 1, total: candidates.count, currentName: candidate.name))
+        }
+        try Task.checkCancellation()
         return ApplicationInventory(apps: apps.sorted {
             let order = $0.name.localizedStandardCompare($1.name)
             return order == .orderedSame ? $0.id < $1.id : order == .orderedAscending

@@ -47,3 +47,29 @@ struct InventoryTests {
         #expect(snapshot.used + snapshot.available == snapshot.total)
     }
 }
+
+actor ProgressLog {
+    var values: [InventoryProgress] = []
+    func append(_ value: InventoryProgress) { values.append(value) }
+}
+struct ProgressTests {
+    @Test func reportsRealCoverageAndCanCancelBetweenApps() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root.appendingPathComponent("Demo.app/Contents"), withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let log = ProgressLog()
+        let result = try await MacInventory.applications(roots: [root]) { await log.append($0) }
+        let progress = await log.values
+        #expect(progress.first?.stage == .discovering)
+        #expect(progress.last?.completed == result.apps.count)
+        #expect(progress.last?.total == 1)
+        do {
+            _ = try await Task {
+                try await MacInventory.applications(roots: [root]) { value in
+                    if value.stage == .measuring { withUnsafeCurrentTask { $0?.cancel() } }
+                }
+            }.value
+            Issue.record("Expected cancellation during measurement")
+        } catch is CancellationError {}
+    }
+}

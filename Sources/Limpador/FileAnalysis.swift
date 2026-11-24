@@ -25,10 +25,16 @@ struct AnalyzedFile: Identifiable, Sendable, Codable {
     }
 }
 
+struct FileReadIssue: Sendable {
+    let path: String
+    let reason: String
+}
+
 struct FileAnalysis: Sendable {
     let root: URL
     let files: [AnalyzedFile]
-    let unreadableEntries: Int
+    let issues: [FileReadIssue]
+    var unreadableEntries: Int { issues.count }
     let observedAt: Date
     var excludedEntries = 0
     var bytes: Int64 { files.reduce(0) { $0 + $1.bytes } }
@@ -44,16 +50,16 @@ struct FileAnalysis: Sendable {
 enum FileAnalyzer {
     static func scan(_ root: URL, excluding exclusions: AnalysisExclusions = .load()) throws -> FileAnalysis {
         var excluded = 0
-        if exclusions.contains(root.path) { return FileAnalysis(root: root, files: [], unreadableEntries: 0, observedAt: Date(), excludedEntries: 1) }
-        let keys: Set<URLResourceKey> = [.isSymbolicLinkKey, .isRegularFileKey, .isDirectoryKey, .fileSizeKey, .contentModificationDateKey]
+        if exclusions.contains(root.path) { return FileAnalysis(root: root, files: [], issues: [], observedAt: Date(), excludedEntries: 1) }
+        let keys: Set<URLResourceKey> = [.isSymbolicLinkKey, .isRegularFileKey, .isDirectoryKey]
         let rootFacts = try root.resourceValues(forKeys: keys)
         guard rootFacts.isDirectory == true, rootFacts.isSymbolicLink != true else {
             throw CocoaError(.fileReadUnsupportedScheme)
         }
-        var failures = 0
+        var issues: [FileReadIssue] = []
         var files: [AnalyzedFile] = []
-        guard let entries = FileManager.default.enumerator(at: root, includingPropertiesForKeys: Array(keys), options: [], errorHandler: { _, _ in
-            failures += 1; return true
+        guard let entries = FileManager.default.enumerator(at: root, includingPropertiesForKeys: Array(keys), options: [], errorHandler: { url, error in
+            issues.append(FileReadIssue(path: url.path, reason: error.localizedDescription)); return true
         }) else { throw CocoaError(.fileReadNoPermission) }
         for case let url as URL in entries {
             try Task.checkCancellation()
@@ -67,9 +73,9 @@ enum FileAnalyzer {
                 guard facts.isSymbolicLink != true, facts.isRegularFile == true else { continue }
                 let identity = try FileIdentity.read(url.path)
                 files.append(AnalyzedFile(path: url.path, bytes: identity.bytes, modifiedAt: identity.modifiedAt, relativePath: url.pathComponents.suffix(entries.level).joined(separator: "/"), identity: identity))
-            } catch { failures += 1 }
+            } catch { issues.append(FileReadIssue(path: url.path, reason: error.localizedDescription)) }
         }
         try Task.checkCancellation()
-        return FileAnalysis(root: root, files: files.sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }, unreadableEntries: failures, observedAt: Date(), excludedEntries: excluded)
+        return FileAnalysis(root: root, files: files.sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }, issues: issues, observedAt: Date(), excludedEntries: excluded)
     }
 }

@@ -62,6 +62,15 @@ struct FileReviewView: View {
                 Text("\(result.files.count) arquivos · \(selected.count) selecionados · " + ByteCountFormatter.string(fromByteCount: selectedBytes(result), countStyle: .file))
                 Text("\(result.excludedEntries) entradas excluídas pelas preferências").font(.caption).foregroundStyle(.secondary)
                 if result.unreadableEntries > 0 {
+                    DisclosureGroup("Detalhes das entradas não lidas") {
+                        ScrollView {
+                            LazyVStack(alignment: .leading, spacing: 8) {
+                                ForEach(Array(result.issues.enumerated()), id: \.offset) { _, issue in
+                                    Text(issue.path + "\n" + issue.reason).font(.caption).textSelection(.enabled)
+                                }
+                            }
+                        }.frame(maxHeight: 140)
+                    }
                     Label("Leitura parcial: \(result.unreadableEntries) entradas inacessíveis", systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
                 }
                 HStack {
@@ -148,7 +157,7 @@ struct FileReviewView: View {
             removalReport = report
             let moved = Set(report.entries.filter { $0.outcome == .trashed }.map(\.path))
             if let result {
-                self.result = FileAnalysis(root: result.root, files: result.files.filter { !moved.contains($0.path) }, unreadableEntries: result.unreadableEntries, observedAt: result.observedAt, excludedEntries: result.excludedEntries)
+                self.result = FileAnalysis(root: result.root, files: result.files.filter { !moved.contains($0.path) }, issues: result.issues, observedAt: result.observedAt, excludedEntries: result.excludedEntries)
             }
             selected.subtract(moved)
             history?.record(scope: root.path, outcome: "Limpeza: \(report.movedCount) enviados à Lixeira", itemCount: report.entries.count, report: report)

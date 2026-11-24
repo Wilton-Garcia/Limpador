@@ -12,6 +12,7 @@ struct FileReviewView: View {
     @State private var ageMonths = 0
     @State private var findingDuplicates = false
     @State private var previewURL: URL?
+    @State private var estimate: RecoveryEstimate?
     @State private var selected: Set<String> = []
 
     var body: some View {
@@ -80,6 +81,10 @@ struct FileReviewView: View {
                             .help("Mostrar no Finder").accessibilityLabel("Mostrar \(file.url.lastPathComponent) no Finder")
                     }.padding(.vertical, 5)
                 }
+                if let estimate {
+                    Text("Espaço alocado estimado da seleção: " + ByteCountFormatter.string(fromByteCount: estimate.allocatedBytes, countStyle: .file))
+                    Text("\(estimate.unverified) arquivos não verificados; \(estimate.sharedLinks) com múltiplos links. Clones, compressão e snapshots APFS podem alterar o espaço efetivamente liberado. Enviar à Lixeira não libera esse espaço imediatamente.").font(.caption).foregroundStyle(.secondary)
+                }
                 Text("A associação usa o pacote ou identificador do app. Não detectar associação não comprova que um arquivo esteja sem uso. Seleção apenas para revisão. Nenhum arquivo será removido. Os tamanhos são lógicos.").font(.caption).foregroundStyle(.secondary)
             } else if let error {
                 ContentUnavailableView("Não foi possível ler esta pasta", systemImage: "exclamationmark.triangle", description: Text(error))
@@ -89,6 +94,16 @@ struct FileReviewView: View {
         }.padding(24).frame(minWidth: 760, minHeight: 540)
         .sheet(isPresented: Binding(get: { previewURL != nil }, set: { if !$0 { previewURL = nil } })) { if let previewURL { FilePreviewView(url: previewURL) } }
         .sheet(isPresented: $findingDuplicates) { if let result { DuplicateReviewView(files: result.files) } }
+        .task(id: selected) {
+            estimate = nil
+            guard let result else { return }
+            let files = result.files.filter { selected.contains($0.id) }
+            let task = Task.detached(priority: .utility) { try RecoveryEstimate.calculate(files) }
+            do {
+                let value = try await withTaskCancellationHandler { try await task.value } onCancel: { task.cancel() }
+                try Task.checkCancellation(); estimate = value
+            } catch {}
+        }
         .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didLaunchApplicationNotification)) { _ in activeApps = .snapshot() }
         .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didTerminateApplicationNotification)) { _ in activeApps = .snapshot() }
         .task(id: root) {

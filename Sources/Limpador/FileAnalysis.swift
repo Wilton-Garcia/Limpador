@@ -5,7 +5,9 @@ struct AnalyzedFile: Identifiable, Sendable, Codable {
     let bytes: Int64
     let modifiedAt: Date?
     let relativePath: String
-    init(path: String, bytes: Int64, modifiedAt: Date?, relativePath: String? = nil) {
+    let identity: FileIdentity?
+    init(path: String, bytes: Int64, modifiedAt: Date?, relativePath: String? = nil, identity: FileIdentity? = nil) {
+        self.identity = identity
         self.path = path; self.bytes = bytes; self.modifiedAt = modifiedAt
         self.relativePath = relativePath ?? URL(fileURLWithPath: path).lastPathComponent
     }
@@ -63,8 +65,8 @@ enum FileAnalyzer {
             do {
                 let facts = try url.resourceValues(forKeys: keys)
                 guard facts.isSymbolicLink != true, facts.isRegularFile == true else { continue }
-                guard let bytes = facts.fileSize else { failures += 1; continue }
-                files.append(AnalyzedFile(path: url.path, bytes: Int64(bytes), modifiedAt: facts.contentModificationDate, relativePath: url.pathComponents.suffix(entries.level).joined(separator: "/")))
+                let identity = try FileIdentity.read(url.path)
+                files.append(AnalyzedFile(path: url.path, bytes: identity.bytes, modifiedAt: identity.modifiedAt, relativePath: url.pathComponents.suffix(entries.level).joined(separator: "/"), identity: identity))
             } catch { failures += 1 }
         }
         try Task.checkCancellation()

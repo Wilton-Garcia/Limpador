@@ -25,6 +25,21 @@ jobs:
           uname -m
           swift --version
       - name: Run tests on the native runner
-        run: swift test
+        run: |
+          set +e
+          swift test > native-tests.log 2>&1
+          result=$?
+          cat native-tests.log
+          if [ "$result" -ne 0 ]; then
+            python3 - <<'PYLOG'
+          from pathlib import Path
+          lines = Path('native-tests.log').read_text(errors='replace').splitlines()
+          failures = [line for line in lines if 'error:' in line or 'failed' in line.lower()]
+          for line in (failures or lines[-20:])[:30]:
+              escaped = line.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print('::error::' + escaped)
+          PYLOG
+          fi
+          exit "$result"
       - name: Build runtime
         run: swift build -c release

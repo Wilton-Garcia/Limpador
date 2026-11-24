@@ -28,6 +28,7 @@ struct FileAnalysis: Sendable {
     let files: [AnalyzedFile]
     let unreadableEntries: Int
     let observedAt: Date
+    var excludedEntries = 0
     var bytes: Int64 { files.reduce(0) { $0 + $1.bytes } }
     func distribution(byCategory: Bool) -> [(name: String, bytes: Int64)] {
         let groups = Dictionary(grouping: files) { file in
@@ -39,7 +40,9 @@ struct FileAnalysis: Sendable {
 }
 
 enum FileAnalyzer {
-    static func scan(_ root: URL) throws -> FileAnalysis {
+    static func scan(_ root: URL, excluding exclusions: AnalysisExclusions = .load()) throws -> FileAnalysis {
+        var excluded = 0
+        if exclusions.contains(root.path) { return FileAnalysis(root: root, files: [], unreadableEntries: 0, observedAt: Date(), excludedEntries: 1) }
         let keys: Set<URLResourceKey> = [.isSymbolicLinkKey, .isRegularFileKey, .isDirectoryKey, .fileSizeKey, .contentModificationDateKey]
         let rootFacts = try root.resourceValues(forKeys: keys)
         guard rootFacts.isDirectory == true, rootFacts.isSymbolicLink != true else {
@@ -52,6 +55,11 @@ enum FileAnalyzer {
         }) else { throw CocoaError(.fileReadNoPermission) }
         for case let url as URL in entries {
             try Task.checkCancellation()
+            if exclusions.contains(url.path) {
+                excluded += 1
+                if (try? url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])).map({ $0.isDirectory == true && $0.isSymbolicLink != true }) == true { entries.skipDescendants() }
+                continue
+            }
             do {
                 let facts = try url.resourceValues(forKeys: keys)
                 guard facts.isSymbolicLink != true, facts.isRegularFile == true else { continue }
@@ -60,6 +68,6 @@ enum FileAnalyzer {
             } catch { failures += 1 }
         }
         try Task.checkCancellation()
-        return FileAnalysis(root: root, files: files.sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }, unreadableEntries: failures, observedAt: Date())
+        return FileAnalysis(root: root, files: files.sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }, unreadableEntries: failures, observedAt: Date(), excludedEntries: excluded)
     }
 }

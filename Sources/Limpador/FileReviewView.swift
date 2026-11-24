@@ -51,6 +51,7 @@ struct FileReviewView: View {
                 }
                 Text("\(filtered.count) arquivos visíveis").font(.caption).foregroundStyle(.secondary)
                 Text("\(result.files.count) arquivos · \(selected.count) selecionados · " + ByteCountFormatter.string(fromByteCount: selectedBytes(result), countStyle: .file))
+                Text("\(result.excludedEntries) entradas excluídas pelas preferências").font(.caption).foregroundStyle(.secondary)
                 if result.unreadableEntries > 0 {
                     Label("Leitura parcial: \(result.unreadableEntries) entradas inacessíveis", systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
                 }

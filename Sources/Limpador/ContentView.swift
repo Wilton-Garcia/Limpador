@@ -420,6 +420,8 @@ struct ContentView: View {
                     Text("Clara").tag("light")
                     Text("Escura").tag("dark")
                 }.pickerStyle(.segmented)
+                AnalysisExclusionPreferences()
+                Divider()
                 Toggle("Mostrar tamanhos compactos", isOn: $compactNumbers)
                 Toggle("Ler aplicativos ao abrir o Limpador", isOn: $scanOnLaunch)
                 Text("Suas preferências são salvas neste Mac e restauradas ao abrir o aplicativo.")

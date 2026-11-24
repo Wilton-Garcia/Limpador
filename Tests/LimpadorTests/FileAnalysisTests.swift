@@ -35,3 +35,20 @@ struct FileQueryTests {
         #expect(FileQuery(order: .oldest).apply(to: files).last?.modifiedAt == nil)
     }
 }
+
+struct ExclusionTests {
+    @Test func excludesWholeSubtreesWithoutMatchingSiblingPrefixes() throws {
+        let root = URL(fileURLWithPath: "/private/tmp").appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        for directory in ["cache", "cache-other"] {
+            try FileManager.default.createDirectory(at: root.appendingPathComponent(directory), withIntermediateDirectories: true)
+            try Data([1]).write(to: root.appendingPathComponent(directory + "/file"))
+        }
+        let exclusions = AnalysisExclusions(paths: [root.appendingPathComponent("cache").path])
+        let result = try FileAnalyzer.scan(root, excluding: exclusions)
+        #expect(result.files.count == 1)
+        #expect(result.files.first?.relativePath == "cache-other/file")
+        #expect(result.excludedEntries == 1)
+        #expect(!exclusions.contains(root.appendingPathComponent("cache-other").path))
+    }
+}

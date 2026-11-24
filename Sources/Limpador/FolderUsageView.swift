@@ -32,6 +32,7 @@ struct FolderUsageView: View {
             if let error { Label(error, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.orange) }
             if let result {
                 Text("\(result.files.count) arquivos · " + ByteCountFormatter.string(fromByteCount: result.bytes, countStyle: .file))
+                Text("\(result.excludedEntries) entradas excluídas pelas preferências").font(.caption).foregroundStyle(.secondary)
                 if result.unreadableEntries > 0 { Text("Leitura parcial: \(result.unreadableEntries) entradas inacessíveis").foregroundStyle(.orange) }
                 Picker("Agrupar por", selection: $grouping) { Text("Categoria").tag("Categoria"); Text("Subpasta").tag("Subpasta") }.pickerStyle(.segmented)
                 ForEach(result.distribution(byCategory: grouping == "Categoria"), id: \.name) { group in

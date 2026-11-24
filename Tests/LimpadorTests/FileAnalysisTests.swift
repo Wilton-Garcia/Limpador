@@ -30,6 +30,7 @@ struct FileQueryTests {
                      AnalyzedFile(path: "/b/photo.png", bytes: 50, modifiedAt: Date(timeIntervalSince1970: 10))]
         #expect(FileQuery(order: .largest).apply(to: files).map(\.bytes) == [100, 50, 20])
         #expect(FileQuery(search: "photo", category: "Imagens", order: .newest).apply(to: files).map(\.path) == ["/b/photo.png", "/a/photo.png"])
+        #expect(FileQuery(minimumBytes: 50).apply(to: files).map(\.bytes) == [100, 50])
         #expect(FileQuery(order: .oldest).apply(to: files).last?.modifiedAt == nil)
     }
 }

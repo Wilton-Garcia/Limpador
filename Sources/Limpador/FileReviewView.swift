@@ -30,6 +30,12 @@ struct FileReviewView: View {
                         ForEach(FileQuery.Order.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                     }.frame(width: 220)
                 }
+                Picker("Tamanho mínimo", selection: $query.minimumBytes) {
+                    Text("Qualquer tamanho").tag(Int64(0))
+                    Text("100 MB").tag(Int64(100_000_000))
+                    Text("1 GB").tag(Int64(1_000_000_000))
+                    Text("10 GB").tag(Int64(10_000_000_000))
+                }.frame(maxWidth: 300)
                 Text("\(filtered.count) arquivos visíveis").font(.caption).foregroundStyle(.secondary)
                 Text("\(result.files.count) arquivos · \(selected.count) selecionados · " + ByteCountFormatter.string(fromByteCount: selectedBytes(result), countStyle: .file))
                 if result.unreadableEntries > 0 {

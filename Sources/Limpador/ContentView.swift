@@ -16,6 +16,7 @@ private enum Destination: String, CaseIterable, Identifiable {
     case cleanup = "Limpeza"
     case storage = "Armazenamento"
     case apps = "Aplicativos"
+    case startup = "Inicialização"
     case monitor = "Monitoramento"
     case history = "Histórico"
     case settings = "Preferências"
@@ -26,6 +27,7 @@ private enum Destination: String, CaseIterable, Identifiable {
         case .cleanup: "sparkles"
         case .storage: "internaldrive"
         case .apps: "square.stack.3d.up"
+        case .startup: "power"
         case .monitor: "waveform.path.ecg"
         case .history: "clock.arrow.circlepath"
         case .settings: "slider.horizontal.3"
@@ -62,6 +64,7 @@ struct ContentView: View {
                         case .cleanup: cleanup
                         case .storage: storage
                         case .apps: applications
+                        case .startup: StartupInventoryView()
                         case .monitor: SystemMonitorView()
                         case .history: history
                         case .settings: settings
@@ -104,9 +107,11 @@ struct ContentView: View {
             .padding(.bottom, 38)
             Text("SEU ESPAÇO").font(.system(size: 10, weight: .semibold)).tracking(1.8)
                 .foregroundStyle(Palette.muted).padding(.leading, 12).padding(.bottom, 13)
-            ForEach(Destination.allCases.filter { $0 != .settings }) { item in
-                navigationButton(item)
-            }
+            ScrollView {
+                VStack(spacing: 0) {
+                    ForEach(Destination.allCases.filter { $0 != .settings }) { item in navigationButton(item) }
+                }
+            }.scrollIndicators(.hidden)
             Spacer()
             VStack(alignment: .leading, spacing: 12) {
                 Label("Feito para o seu Mac", systemImage: "leaf").font(.system(size: 12, weight: .semibold))

@@ -38,6 +38,7 @@ struct ContentView: View {
     @State private var search = ""
     @State private var applicationOrder: ApplicationQuery.Order = .name
     @State private var historicalReport: RemovalReport?
+    @State private var showingLeftovers = false
     @State private var dataApplication: InstalledApplication?
     @State private var inspectedApplication: InstalledApplication?
     @AppStorage("compactNumbers") private var compactNumbers = true
@@ -79,6 +80,7 @@ struct ContentView: View {
                 if let historicalReport { RemovalReportView(report: historicalReport) }
             }.padding(24).frame(minWidth: 740, minHeight: 500)
         }
+        .sheet(isPresented: $showingLeftovers) { if let inventory = mac.inventory { LeftoverView(inventory: inventory, history: mac.history) } }
         .sheet(item: $dataApplication) { app in ApplicationDataView(app: app, identityMatches: mac.inventory?.apps.filter { $0.bundleID == app.bundleID }.count ?? 1, history: mac.history) }
         .sheet(item: $inspectedApplication) { app in FileReviewView(root: app.url) }
         .task { if scanOnLaunch { await mac.refresh() } }
@@ -266,6 +268,7 @@ struct ContentView: View {
         Group {
             heading("Só o que faz parte do seu dia.", subtitle: "Aplicativos encontrados nas pastas do sistema e do usuário, incluindo subpastas como Utilitários.")
             refreshBar
+            Button("Procurar possíveis sobras") { showingLeftovers = true }.disabled(mac.inventory == nil || mac.loading)
             TextField("Buscar por nome ou caminho", text: $search)
                 .textFieldStyle(.roundedBorder).frame(maxWidth: 360)
             if let inventory = mac.inventory {

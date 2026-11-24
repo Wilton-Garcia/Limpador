@@ -49,6 +49,7 @@ struct FileReviewView: View {
                 .onChange(of: ageMonths) { _, months in
                     query.modifiedBefore = months == 0 ? nil : Calendar.current.date(byAdding: .month, value: -months, to: result.observedAt)
                 }
+                Toggle("Possíveis instaladores (.dmg, .pkg, .mpkg)", isOn: $query.installersOnly).toggleStyle(.checkbox)
                 Text("\(filtered.count) arquivos visíveis").font(.caption).foregroundStyle(.secondary)
                 Text("\(result.files.count) arquivos · \(selected.count) selecionados · " + ByteCountFormatter.string(fromByteCount: selectedBytes(result), countStyle: .file))
                 Text("\(result.excludedEntries) entradas excluídas pelas preferências").font(.caption).foregroundStyle(.secondary)

@@ -52,3 +52,12 @@ struct ExclusionTests {
         #expect(!exclusions.contains(root.appendingPathComponent("cache-other").path))
     }
 }
+
+struct InstallerQueryTests {
+    @Test func installerFilteringUsesExtensionAndRequiresKnownAge() {
+        let files = [AnalyzedFile(path: "/setup.DMG", bytes: 2, modifiedAt: Date(timeIntervalSince1970: 10)),
+                     AnalyzedFile(path: "/setup.pkg", bytes: 3, modifiedAt: nil),
+                     AnalyzedFile(path: "/document.txt", bytes: 1, modifiedAt: Date(timeIntervalSince1970: 10))]
+        #expect(FileQuery(modifiedBefore: Date(timeIntervalSince1970: 20), installersOnly: true).apply(to: files).map(\.path) == ["/setup.DMG"])
+    }
+}

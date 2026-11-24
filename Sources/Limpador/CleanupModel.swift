@@ -12,7 +12,9 @@ struct CleanupSource: Identifiable, Sendable {
     static var sources: [Self] {
         [caches,
          Self(id: "user-logs", title: "Registros e relatórios do usuário", explanation: "Inclui relatórios de diagnóstico em Library/Logs. Use o filtro de última modificação na revisão para encontrar registros antigos.", root: FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs")),
-         Self(id: "system-logs", title: "Relatórios compartilhados", explanation: "Registros em /Library/Logs. Itens protegidos serão informados como inacessíveis; o app não solicita privilégios de administrador.", root: URL(fileURLWithPath: "/Library/Logs"))]
+         Self(id: "system-logs", title: "Relatórios compartilhados", explanation: "Registros em /Library/Logs. Itens protegidos serão informados como inacessíveis; o app não solicita privilégios de administrador.", root: URL(fileURLWithPath: "/Library/Logs")),
+         Self(id: "temporary", title: "Temporários do usuário", explanation: "Pasta temporária desta conta. Pode conter arquivos em uso; a revisão não implica autorização para remoção.", root: FileManager.default.temporaryDirectory),
+         Self(id: "installers", title: "Possíveis instaladores em Downloads", explanation: "Na revisão, ative o filtro de instaladores e escolha a idade. A extensão indica um candidato, não garante que o arquivo seja dispensável.", root: URL.downloadsDirectory)]
     }
 }
 

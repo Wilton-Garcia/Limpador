@@ -8,6 +8,7 @@ struct FileReviewView: View {
     @State private var error: String?
     @State private var query = FileQuery()
     @State private var ageMonths = 0
+    @State private var findingDuplicates = false
     @State private var selected: Set<String> = []
 
     var body: some View {
@@ -53,6 +54,7 @@ struct FileReviewView: View {
                 }
                 HStack {
                     Button("Selecionar visíveis") { selected.formUnion(filtered.map(\.id)) }
+                    Button("Encontrar duplicados") { findingDuplicates = true }
                     Button("Desmarcar") { selected.removeAll() }.disabled(selected.isEmpty)
                 }
                 List(filtered) { file in
@@ -78,6 +80,7 @@ struct FileReviewView: View {
                 ProgressView("Lendo arquivos…").frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }.padding(24).frame(minWidth: 760, minHeight: 540)
+        .sheet(isPresented: $findingDuplicates) { if let result { DuplicateReviewView(files: result.files) } }
         .task(id: root) {
             if let initialResult { result = initialResult; return }
             let worker = Task.detached(priority: .utility) { try FileAnalyzer.scan(root) }

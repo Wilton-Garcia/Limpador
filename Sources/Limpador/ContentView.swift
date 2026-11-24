@@ -64,7 +64,7 @@ struct ContentView: View {
                         case .cleanup: cleanup
                         case .storage: storage
                         case .apps: applications
-                        case .startup: StartupInventoryView()
+                        case .startup: StartupInventoryView(applications: mac.inventory?.apps)
                         case .monitor: SystemMonitorView()
                         case .history: history
                         case .settings: settings

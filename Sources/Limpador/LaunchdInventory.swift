@@ -20,6 +20,7 @@ enum LaunchdInventory {
     static var agentRoots: [URL] {
         [FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/LaunchAgents"), URL(fileURLWithPath: "/Library/LaunchAgents"), URL(fileURLWithPath: "/System/Library/LaunchAgents")]
     }
+    static var daemonRoots: [URL] { [URL(fileURLWithPath: "/Library/LaunchDaemons"), URL(fileURLWithPath: "/System/Library/LaunchDaemons")] }
     static func parse(_ data: Data, url: URL) throws -> LaunchdRecord {
         let raw = try PropertyListSerialization.propertyList(from: data, format: nil)
         guard let dictionary = raw as? [String: Any] else { throw CocoaError(.fileReadCorruptFile) }

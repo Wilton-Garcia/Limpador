@@ -288,7 +288,7 @@ struct ContentView: View {
 
     private var storage: some View {
         Group {
-            FolderUsageView()
+            FolderUsageView { analysis in mac.history.record(scope: analysis.root.path, outcome: analysis.unreadableEntries == 0 ? "Concluída" : "Parcial", itemCount: analysis.files.count, bytes: analysis.bytes) }
             heading("Espaço para enxergar melhor.", subtitle: "Capacidade do volume que contém sua pasta pessoal, informada pelo macOS.")
             refreshBar
             if let disk = mac.disk {

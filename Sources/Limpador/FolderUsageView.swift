@@ -3,6 +3,8 @@ import UniformTypeIdentifiers
 
 struct FolderUsageView: View {
     @State private var choosing = false
+    @State private var volumes: [URL] = []
+    var onCompleted: (FileAnalysis) -> Void = { _ in }
     @State private var root: URL?
     @State private var request = UUID()
     @State private var result: FileAnalysis?
@@ -19,6 +21,11 @@ struct FolderUsageView: View {
                 if worker != nil { Button("Cancelar") { worker?.cancel() } }
                 Button("Revisar Downloads") { select(URL.downloadsDirectory) }.disabled(worker != nil)
                 Button("Escolher pasta") { choosing = true }.disabled(worker != nil)
+                Menu("Volumes") {
+                    ForEach(volumes, id: \.path) { volume in
+                        Button((try? volume.resourceValues(forKeys: [.volumeNameKey]).volumeName) ?? volume.path) { select(volume) }
+                    }
+                }.disabled(worker != nil || volumes.isEmpty)
             }
             if let root { Text(root.path).font(.caption).textSelection(.enabled) }
             if worker != nil { ProgressView("Lendo a pasta…") }
@@ -39,6 +46,7 @@ struct FolderUsageView: View {
             }
         }
         .padding(24).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 16))
+        .onAppear { volumes = FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: [.volumeNameKey], options: [.skipHiddenVolumes]) ?? [] }
         .fileImporter(isPresented: $choosing, allowedContentTypes: [.folder]) { selection in
             switch selection {
             case .success(let url): select(url)
@@ -58,6 +66,7 @@ struct FolderUsageView: View {
                 let analysis = try await withTaskCancellationHandler { try await task.value } onCancel: { task.cancel() }
                 try Task.checkCancellation()
                 result = analysis
+                onCompleted(analysis)
             } catch is CancellationError { error = "Análise cancelada." }
             catch { self.error = error.localizedDescription }
         }

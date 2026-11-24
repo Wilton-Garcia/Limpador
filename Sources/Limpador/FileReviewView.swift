@@ -7,6 +7,7 @@ struct FileReviewView: View {
     @State private var result: FileAnalysis?
     @State private var error: String?
     @State private var query = FileQuery()
+    @State private var ageMonths = 0
     @State private var selected: Set<String> = []
 
     var body: some View {
@@ -36,6 +37,15 @@ struct FileReviewView: View {
                     Text("1 GB").tag(Int64(1_000_000_000))
                     Text("10 GB").tag(Int64(10_000_000_000))
                 }.frame(maxWidth: 300)
+                Picker("Última modificação", selection: $ageMonths) {
+                    Text("Qualquer data").tag(0)
+                    Text("Há mais de 6 meses").tag(6)
+                    Text("Há mais de 1 ano").tag(12)
+                    Text("Há mais de 2 anos").tag(24)
+                }.frame(maxWidth: 330)
+                .onChange(of: ageMonths) { _, months in
+                    query.modifiedBefore = months == 0 ? nil : Calendar.current.date(byAdding: .month, value: -months, to: result.observedAt)
+                }
                 Text("\(filtered.count) arquivos visíveis").font(.caption).foregroundStyle(.secondary)
                 Text("\(result.files.count) arquivos · \(selected.count) selecionados · " + ByteCountFormatter.string(fromByteCount: selectedBytes(result), countStyle: .file))
                 if result.unreadableEntries > 0 {

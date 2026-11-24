@@ -1,0 +1,75 @@
+import SwiftUI
+
+@MainActor @Observable
+final class MacDataModel {
+    var disk: DiskSnapshot?
+    var diskError: String?
+    var inventory: ApplicationInventory?
+    var inventoryError: String?
+    var loading = false
+    var currentApplication = ""
+
+    func refresh() async {
+        guard !loading else { return }
+        loading = true
+        currentApplication = ""
+        diskError = nil
+        inventoryError = nil
+        defer { loading = false; currentApplication = "" }
+        // A refresh replaces previous results so old observations never appear current.
+        disk = nil
+        inventory = nil
+        do { disk = try DiskSnapshot.read() }
+        catch { diskError = error.localizedDescription }
+        let worker = Task.detached(priority: .utility) {
+            try await MacInventory.applications { name in
+                await self.setProgress(name)
+            }
+        }
+        do {
+            let result = try await withTaskCancellationHandler {
+                try await worker.value
+            } onCancel: {
+                worker.cancel()
+            }
+            try Task.checkCancellation()
+            inventory = result
+        } catch is CancellationError {
+            inventoryError = "Leitura interrompida. Atualize para tentar novamente."
+        } catch { inventoryError = error.localizedDescription }
+    }
+
+    private func setProgress(_ name: String) { currentApplication = name }
+}
+
+struct ApplicationRow: View {
+    let app: InstalledApplication
+    @State private var image: NSImage?
+    var body: some View {
+        HStack(spacing: 14) {
+            Group {
+                if let image { Image(nsImage: image).resizable().scaledToFit() }
+                else { Image(systemName: "app.dashed").resizable().scaledToFit().padding(8) }
+            }.frame(width: 42, height: 42).accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 5) {
+                Text(app.name).font(.system(size: 14, weight: .semibold))
+                Text(app.version.map { "Versão \($0)" } ?? "Versão não informada")
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
+                Text(app.url.path).font(.system(size: 10)).foregroundStyle(.secondary)
+                    .lineLimit(1).truncationMode(.middle).help(app.url.path)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(ByteCountFormatter.string(fromByteCount: app.size.bytes, countStyle: .file))
+                    .font(.system(size: 13, weight: .medium)).monospacedDigit()
+                Text(app.size.complete ? "Pacote · tamanho lógico" : "Parcial · \(app.size.unreadableEntries) falhas")
+                    .font(.system(size: 10)).foregroundStyle(app.size.complete ? Color.secondary : .orange)
+            }
+            Button { NSWorkspace.shared.activateFileViewerSelecting([app.url]) } label: {
+                Image(systemName: "folder")
+            }.buttonStyle(.borderless).help("Mostrar no Finder").accessibilityLabel("Mostrar \(app.name) no Finder")
+        }
+        .padding(20)
+        .task(id: app.id) { image = NSWorkspace.shared.icon(forFile: app.url.path) }
+    }
+}

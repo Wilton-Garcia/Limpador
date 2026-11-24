@@ -1,0 +1,12 @@
+ferramentas/node_modules/
+evidencias/
+config/setup*.json
+config/doctor*.json
+.build/
+build/
+.swiftpm/
+.DS_Store
+ferramentas/
+config/alvo.json
+rea
+inspecionar.sh

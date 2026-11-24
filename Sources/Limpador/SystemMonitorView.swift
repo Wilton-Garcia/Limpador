@@ -31,6 +31,19 @@ struct SystemMonitorView: View {
                         ProgressView(value: Double(disk.used), total: Double(disk.total))
                     }.monitorCard()
                 }
+                if let batteries = sample.batteries {
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("Bateria").font(.headline)
+                        if batteries.isEmpty { Text("Nenhuma bateria interna anunciada pelo sistema.").font(.caption) }
+                        ForEach(batteries) { battery in
+                            LabeledContent(battery.name, value: battery.fraction.map { $0.formatted(.percent.precision(.fractionLength(0))) } ?? "Carga indisponível")
+                            LabeledContent("Carregando", value: battery.charging.map { $0 ? "Sim" : "Não" } ?? "Não informado")
+                            LabeledContent("Fonte", value: battery.source ?? "Não informada")
+                            LabeledContent("Condição reportada", value: battery.health ?? "Não informada")
+                            if let minutes = battery.minutesRemaining { Text("Autonomia estimada pelo sistema: \(minutes) min").font(.caption) }
+                        }
+                    }.monitorCard()
+                }
                 ForEach(sample.issues, id: \.self) { Text($0).font(.caption).foregroundStyle(.orange) }
                 Text("Amostra: " + sample.date.formatted(date: .omitted, time: .standard)).font(.caption).foregroundStyle(.secondary)
             } else { ProgressView("Lendo métricas do sistema…") }

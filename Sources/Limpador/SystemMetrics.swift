@@ -23,6 +23,7 @@ struct SystemSample: Sendable {
     let cpu: CPUTicks?
     let memory: MemoryMetrics?
     let disk: DiskSnapshot?
+    let batteries: [BatteryMetric]?
     let date: Date
     let issues: [String]
 }
@@ -56,10 +57,12 @@ enum SystemMetrics {
     static func sample() -> SystemSample {
         var issues: [String] = []
         var cpu: CPUTicks?, memory: MemoryMetrics?, disk: DiskSnapshot?
+        var batteries: [BatteryMetric]?
         do { cpu = try self.cpu() } catch { issues.append("CPU: " + error.localizedDescription) }
         do { memory = try self.memory() } catch { issues.append("Memória: " + error.localizedDescription) }
         do { disk = try DiskSnapshot.read() } catch { issues.append("Disco: " + error.localizedDescription) }
-        return SystemSample(cpu: cpu, memory: memory, disk: disk, date: Date(), issues: issues)
+        do { batteries = try BatteryMetrics.read() } catch { issues.append("Bateria: " + error.localizedDescription) }
+        return SystemSample(cpu: cpu, memory: memory, disk: disk, batteries: batteries, date: Date(), issues: issues)
     }
 }
 

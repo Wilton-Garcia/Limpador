@@ -53,7 +53,8 @@ struct ContentView: View {
     @State private var search = ""
     @State private var inspectedApplication: InstalledApplication?
     @State private var showRemovalNotice = false
-    @State private var compactNumbers = true
+    @AppStorage("compactNumbers") private var compactNumbers = true
+    @AppStorage("scanOnLaunch") private var scanOnLaunch = true
     private var isScanning: Bool { scanTask != nil }
 
     var body: some View {
@@ -89,7 +90,7 @@ struct ContentView: View {
             Text("Os resultados são exemplos. Nenhum arquivo foi acessado ou removido. A limpeza real estará disponível quando o motor de análise for implementado.")
         }
         .sheet(item: $inspectedApplication) { app in FileReviewView(root: app.url) }
-        .task { await mac.refresh() }
+        .task { if scanOnLaunch { await mac.refresh() } }
         .onDisappear { cancelScan(); mac.cancel() }
     }
 
@@ -327,7 +328,7 @@ struct ContentView: View {
                 } else {
                     LazyVStack(spacing: 0) {
                         ForEach(filtered) { app in
-                            ApplicationRow(app: app) { inspectedApplication = app }
+                            ApplicationRow(app: app, compact: compactNumbers) { inspectedApplication = app }
                             if app.id != filtered.last?.id { Divider() }
                         }
                     }.card()
@@ -364,7 +365,7 @@ struct ContentView: View {
     }
 
     private func bytes(_ count: Int64) -> String {
-        ByteCountFormatter.string(fromByteCount: count, countStyle: .file)
+        compactNumbers ? ByteCountFormatter.string(fromByteCount: count, countStyle: .file) : count.formatted() + " bytes"
     }
 
     private var history: some View {
@@ -402,8 +403,9 @@ struct ContentView: View {
                 Text("Limpador 0.1 · Swift + SwiftUI").font(.system(size: 13))
                 Text("Armazenamento e aplicativos usam leituras reais do Mac. A limpeza de caches continua em demonstração, sem remover arquivos.").font(.system(size: 13)).foregroundStyle(Palette.muted).lineSpacing(5)
                 Divider()
-                Toggle("Mostrar tamanhos compactos na prévia", isOn: $compactNumbers)
-                Text(compactNumbers ? "Prévia: 12,4 GB" : "Prévia: 12.400.000.000 bytes")
+                Toggle("Mostrar tamanhos compactos", isOn: $compactNumbers)
+                Toggle("Ler aplicativos ao abrir o Limpador", isOn: $scanOnLaunch)
+                Text("Suas preferências são salvas neste Mac e restauradas ao abrir o aplicativo.")
                     .font(.system(size: 12, design: .monospaced)).foregroundStyle(Palette.muted)
             }.padding(26).card()
         }

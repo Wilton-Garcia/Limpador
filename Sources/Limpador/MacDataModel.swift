@@ -56,6 +56,7 @@ final class MacDataModel {
 
 struct ApplicationRow: View {
     let app: InstalledApplication
+    var compact = true
     var onInspect: () -> Void = {}
     @State private var image: NSImage?
     var body: some View {
@@ -73,7 +74,7 @@ struct ApplicationRow: View {
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 4) {
-                Text(ByteCountFormatter.string(fromByteCount: app.size.bytes, countStyle: .file))
+                Text(compact ? ByteCountFormatter.string(fromByteCount: app.size.bytes, countStyle: .file) : app.size.bytes.formatted() + " bytes")
                     .font(.system(size: 13, weight: .medium)).monospacedDigit()
                 Text(app.size.complete ? "Pacote · tamanho lógico" : "Parcial · \(app.size.unreadableEntries) falhas")
                     .font(.system(size: 10)).foregroundStyle(app.size.complete ? Color.secondary : .orange)

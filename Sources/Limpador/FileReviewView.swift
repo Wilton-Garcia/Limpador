@@ -7,6 +7,7 @@ struct FileReviewView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var result: FileAnalysis?
     @State private var error: String?
+    @State private var activeApps = RunningAppGuard(apps: [])
     @State private var query = FileQuery()
     @State private var ageMonths = 0
     @State private var findingDuplicates = false
@@ -79,7 +80,7 @@ struct FileReviewView: View {
                             .help("Mostrar no Finder").accessibilityLabel("Mostrar \(file.url.lastPathComponent) no Finder")
                     }.padding(.vertical, 5)
                 }
-                Text("Seleção apenas para revisão. Nenhum arquivo será removido. Os tamanhos são lógicos.").font(.caption).foregroundStyle(.secondary)
+                Text("A associação usa o pacote ou identificador do app. Não detectar associação não comprova que um arquivo esteja sem uso. Seleção apenas para revisão. Nenhum arquivo será removido. Os tamanhos são lógicos.").font(.caption).foregroundStyle(.secondary)
             } else if let error {
                 ContentUnavailableView("Não foi possível ler esta pasta", systemImage: "exclamationmark.triangle", description: Text(error))
             } else {
@@ -88,7 +89,10 @@ struct FileReviewView: View {
         }.padding(24).frame(minWidth: 760, minHeight: 540)
         .sheet(isPresented: Binding(get: { previewURL != nil }, set: { if !$0 { previewURL = nil } })) { if let previewURL { FilePreviewView(url: previewURL) } }
         .sheet(isPresented: $findingDuplicates) { if let result { DuplicateReviewView(files: result.files) } }
+        .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didLaunchApplicationNotification)) { _ in activeApps = .snapshot() }
+        .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didTerminateApplicationNotification)) { _ in activeApps = .snapshot() }
         .task(id: root) {
+            activeApps = .snapshot()
             if let initialResult { result = initialResult; return }
             let worker = Task.detached(priority: .utility) { try FileAnalyzer.scan(root) }
             do {

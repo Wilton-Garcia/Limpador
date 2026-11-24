@@ -7,7 +7,7 @@ struct CleanupDashboard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             Text("Cada arquivo, uma escolha.").font(.title.bold())
-            Text("Análise real, somente leitura. Selecione uma origem para começar.").foregroundStyle(.secondary)
+            Text("Analise uma origem, revise os arquivos e confirme antes de enviar uma seleção à Lixeira.").foregroundStyle(.secondary)
             ForEach(CleanupSource.sources) { source in
                 HStack(alignment: .top, spacing: 16) {
                     Image(systemName: "sparkles").font(.title2).foregroundStyle(.teal)
@@ -39,6 +39,6 @@ struct CleanupDashboard: View {
                 }.padding(20).frame(maxWidth: .infinity, alignment: .leading).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 16))
             }
         }
-        .sheet(isPresented: $reviewing) { if let result = model.result { FileReviewView(root: result.root, initialResult: result) } }
+        .sheet(isPresented: $reviewing) { if let result = model.result { FileReviewView(root: result.root, initialResult: result, allowsRemoval: true, history: history) } }
     }
 }

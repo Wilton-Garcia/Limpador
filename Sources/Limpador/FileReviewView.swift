@@ -4,6 +4,8 @@ import QuickLookUI
 struct FileReviewView: View {
     let root: URL
     var initialResult: FileAnalysis? = nil
+    var allowsRemoval = false
+    var history: AnalysisHistory? = nil
     @Environment(\.dismiss) private var dismiss
     @State private var result: FileAnalysis?
     @State private var error: String?
@@ -13,6 +15,10 @@ struct FileReviewView: View {
     @State private var findingDuplicates = false
     @State private var previewURL: URL?
     @State private var estimate: RecoveryEstimate?
+    @State private var confirmingRemoval = false
+    @State private var approvedFiles: [AnalyzedFile] = []
+    @State private var removalTask: Task<Void, Never>?
+    @State private var removalReport: RemovalReport?
     @State private var selected: Set<String> = []
 
     var body: some View {
@@ -85,13 +91,28 @@ struct FileReviewView: View {
                     Text("Espaço alocado estimado da seleção: " + ByteCountFormatter.string(fromByteCount: estimate.allocatedBytes, countStyle: .file))
                     Text("\(estimate.unverified) arquivos não verificados; \(estimate.sharedLinks) com múltiplos links. Clones, compressão e snapshots APFS podem alterar o espaço efetivamente liberado. Enviar à Lixeira não libera esse espaço imediatamente.").font(.caption).foregroundStyle(.secondary)
                 }
-                Text("A associação usa o pacote ou identificador do app. Não detectar associação não comprova que um arquivo esteja sem uso. Seleção apenas para revisão. Nenhum arquivo será removido. Os tamanhos são lógicos.").font(.caption).foregroundStyle(.secondary)
+                if allowsRemoval {
+                    HStack {
+                        Button("Enviar seleção à Lixeira", role: .destructive) {
+                            approvedFiles = result.files.filter { selected.contains($0.id) }
+                            confirmingRemoval = true
+                        }.disabled(selected.isEmpty || removalTask != nil)
+                        if removalTask != nil { ProgressView().controlSize(.small); Button("Cancelar operação") { removalTask?.cancel() } }
+                    }
+                }
+                if let removalReport { RemovalReportView(report: removalReport) }
+                Text("A associação usa o pacote ou identificador do app. Não detectar associação não comprova que um arquivo esteja sem uso. Remoções exigem confirmação. Os tamanhos são lógicos.").font(.caption).foregroundStyle(.secondary)
             } else if let error {
                 ContentUnavailableView("Não foi possível ler esta pasta", systemImage: "exclamationmark.triangle", description: Text(error))
             } else {
                 ProgressView("Lendo arquivos…").frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }.padding(24).frame(minWidth: 760, minHeight: 540)
+        .confirmationDialog("Enviar \(approvedFiles.count) arquivos selecionados à Lixeira?", isPresented: $confirmingRemoval, titleVisibility: .visible) {
+            Button("Confirmar envio à Lixeira", role: .destructive) { performRemoval() }
+            Button("Cancelar", role: .cancel) { approvedFiles = [] }
+        } message: { Text("Os arquivos serão retirados das pastas de origem. Aplicativos podem precisar recriá-los. Arquivos alterados, protegidos ou associados a apps em execução serão ignorados.") }
+        .onDisappear { removalTask?.cancel() }
         .sheet(isPresented: Binding(get: { previewURL != nil }, set: { if !$0 { previewURL = nil } })) { if let previewURL { FilePreviewView(url: previewURL) } }
         .sheet(isPresented: $findingDuplicates) { if let result { DuplicateReviewView(files: result.files) } }
         .task(id: selected) {
@@ -115,6 +136,23 @@ struct FileReviewView: View {
                 try Task.checkCancellation()
                 result = analysis
             } catch is CancellationError {} catch { self.error = error.localizedDescription }
+        }
+    }
+
+    private func performRemoval() {
+        guard allowsRemoval, removalTask == nil, !approvedFiles.isEmpty else { return }
+        let files = approvedFiles
+        removalTask = Task { @MainActor in
+            let worker = Task.detached(priority: .utility) { await FileRemoval.run(files, policy: RemovalPolicy(root: root)) }
+            let report = await withTaskCancellationHandler { await worker.value } onCancel: { worker.cancel() }
+            removalReport = report
+            let moved = Set(report.entries.filter { $0.outcome == .trashed }.map(\.path))
+            if let result {
+                self.result = FileAnalysis(root: result.root, files: result.files.filter { !moved.contains($0.path) }, unreadableEntries: result.unreadableEntries, observedAt: result.observedAt, excludedEntries: result.excludedEntries)
+            }
+            selected.subtract(moved)
+            history?.record(scope: root.path, outcome: "Limpeza: \(report.movedCount) enviados à Lixeira", itemCount: report.entries.count)
+            approvedFiles = []; removalTask = nil
         }
     }
 

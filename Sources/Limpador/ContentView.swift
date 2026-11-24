@@ -349,7 +349,7 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 22) {
                 Label("Sobre esta versão", systemImage: "info.circle").font(.system(size: 17, weight: .semibold))
                 Text("Limpador 0.1 · Swift + SwiftUI").font(.system(size: 13))
-                Text("Armazenamento, aplicativos e caches usam leituras reais. A revisão ainda não remove arquivos.").font(.system(size: 13)).foregroundStyle(Palette.muted).lineSpacing(5)
+                Text("Armazenamento, aplicativos e caches usam leituras reais. A limpeza exige revisão e confirmação para envio à Lixeira.").font(.system(size: 13)).foregroundStyle(Palette.muted).lineSpacing(5)
                 Divider()
                 Picker("Aparência", selection: $appearance) {
                     Text("Seguir sistema").tag("system")
@@ -407,7 +407,7 @@ struct ContentView: View {
     private var demoFooter: some View {
         HStack(spacing: 6) {
             Image(systemName: "info.circle")
-            Text("Dados locais · Análises reais · Nenhum arquivo é removido")
+            Text("Dados locais · Análises reais · Limpeza somente após confirmação")
         }.font(.system(size: 10)).foregroundStyle(Palette.muted).padding(.top, 2)
     }
 

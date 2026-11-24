@@ -192,7 +192,7 @@ struct ContentView: View {
                 HStack(spacing: 12) {
                     Button {
                         if isScanning { cleaner.cancel() }
-                        else { destination = .cleanup; Task { await cleaner.scan(CleanupSource.sources[0], history: mac.history) } }
+                        else { destination = .cleanup; Task { await cleaner.scan(CleanupSource.caches, history: mac.history) } }
                     } label: {
                         Label(isScanning ? "Cancelar" : hasResults ? "Analisar novamente" : "Analisar caches", systemImage: isScanning ? "xmark" : "arrow.right")
                             .font(.system(size: 12, weight: .semibold))

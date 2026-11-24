@@ -6,8 +6,13 @@ struct CleanupSource: Identifiable, Sendable {
     let title: String
     let explanation: String
     let root: URL
+    static var caches: Self {
+        Self(id: "caches", title: "Caches do usuário", explanation: "Arquivos de apoio em Library/Caches. Aplicativos podem precisar recriá-los; revise antes de limpar.", root: FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Caches"))
+    }
     static var sources: [Self] {
-        [Self(id: "caches", title: "Caches do usuário", explanation: "Arquivos de apoio em Library/Caches. Aplicativos podem precisar recriá-los; revise antes de limpar.", root: FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Caches"))]
+        [caches,
+         Self(id: "user-logs", title: "Registros e relatórios do usuário", explanation: "Inclui relatórios de diagnóstico em Library/Logs. Use o filtro de última modificação na revisão para encontrar registros antigos.", root: FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs")),
+         Self(id: "system-logs", title: "Relatórios compartilhados", explanation: "Registros em /Library/Logs. Itens protegidos serão informados como inacessíveis; o app não solicita privilégios de administrador.", root: URL(fileURLWithPath: "/Library/Logs"))]
     }
 }
 

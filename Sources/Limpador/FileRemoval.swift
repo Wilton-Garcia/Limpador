@@ -17,12 +17,19 @@ struct RemovalReport: Codable, Sendable {
 
 struct RemovalPolicy: Sendable {
     let root: URL
+    var home = FileManager.default.homeDirectoryForCurrentUser
     func refusal(for file: AnalyzedFile, running: RunningAppGuard) -> String? {
         guard let expected = file.identity else { return "Identidade não registrada. Analise novamente." }
         guard let current = try? FileIdentity.read(file.path), current == expected else { return "Arquivo alterado ou indisponível. Analise novamente." }
         guard current.owner == getuid() else { return "O arquivo pertence a outra conta." }
         guard let realRoot = FileLocation.canonical(root.path), let realFile = FileLocation.canonical(file.path), realFile.hasPrefix(realRoot + "/") else { return "Arquivo fora da origem autorizada." }
         let forbidden = ["/System", "/Library", "/usr", "/bin", "/sbin", "/private/etc", "/private/var/db", "/Applications"]
+        if let homePath = FileLocation.canonical(home.path) {
+            let protectedUserRoots = ["Library/Group Containers", "Library/Keychains", "Library/Application Support/Limpador"]
+            if protectedUserRoots.contains(where: { realFile == homePath + "/" + $0 || realFile.hasPrefix(homePath + "/" + $0 + "/") }) {
+                return "Dados compartilhados, credenciais ou registros de recuperação protegidos."
+            }
+        }
         if forbidden.contains(where: { realFile == $0 || realFile.hasPrefix($0 + "/") }) { return "Local essencial ou aplicativo protegido." }
         if URL(fileURLWithPath: realFile).pathComponents.contains(where: { $0.hasSuffix(".app") || $0 == ".Trash" || $0 == ".Trashes" }) { return "Pacote de aplicativo ou item já na Lixeira." }
         if AnalysisExclusions.load().contains(file.path) { return "Arquivo excluído pelas preferências." }

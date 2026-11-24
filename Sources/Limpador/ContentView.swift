@@ -381,6 +381,8 @@ struct ContentView: View {
                     Text("Escura").tag("dark")
                 }.pickerStyle(.segmented)
                 Toggle("Mostrar Limpador na barra de menus", isOn: $showMenuBar)
+                PrivacyPermissionsView()
+                Divider()
                 NotificationPreferencesView()
                 Divider()
                 AnalysisReminderPreferences()

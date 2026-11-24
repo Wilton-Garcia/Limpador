@@ -24,3 +24,16 @@ struct RemovalTests {
         #expect(FileManager.default.fileExists(atPath: destination.appendingPathComponent("good").path))
     }
 }
+
+struct TrashReceiptTests {
+    @Test func successWithoutDestinationRemainsSuccess() async throws {
+        let root = URL(fileURLWithPath: "/private/tmp").appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try Data([1]).write(to: root.appendingPathComponent("sample"))
+        let files = try FileAnalyzer.scan(root, excluding: .init(paths: [])).files
+        let report = await FileRemoval.run(files, policy: RemovalPolicy(root: root), running: { RunningAppGuard(apps: []) }, transport: { _ in nil })
+        #expect(report.movedCount == 1)
+        #expect(report.entries.first?.destination == nil)
+    }
+}

@@ -13,7 +13,7 @@ struct RemovalProtectionTests {
             try Data([1]).write(to: file)
         }
         let scan = try FileAnalyzer.scan(home, excluding: .init(paths: []))
-        let policy = RemovalPolicy(root: home, home: home)
+        let policy = RemovalPolicy(root: home, expectedRoot: scan.rootIdentity, home: home)
         let running = RunningAppGuard(apps: [])
         for file in scan.files {
             if file.path.contains("/Caches/") { #expect(policy.refusal(for: file, running: running) == nil) }

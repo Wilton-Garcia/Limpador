@@ -151,13 +151,14 @@ struct FileReviewView: View {
     private func performRemoval() {
         guard allowsRemoval, removalTask == nil, !approvedFiles.isEmpty else { return }
         let files = approvedFiles
+        let policy = RemovalPolicy(root: root, expectedRoot: result?.rootIdentity)
         removalTask = Task { @MainActor in
-            let worker = Task.detached(priority: .utility) { await FileRemoval.run(files, policy: RemovalPolicy(root: root)) }
+            let worker = Task.detached(priority: .utility) { await FileRemoval.run(files, policy: policy) }
             let report = await withTaskCancellationHandler { await worker.value } onCancel: { worker.cancel() }
             removalReport = report
             let moved = Set(report.entries.filter { $0.outcome == .trashed }.map(\.path))
             if let result {
-                self.result = FileAnalysis(root: result.root, files: result.files.filter { !moved.contains($0.path) }, issues: result.issues, observedAt: result.observedAt, excludedEntries: result.excludedEntries)
+                self.result = FileAnalysis(root: result.root, files: result.files.filter { !moved.contains($0.path) }, issues: result.issues, observedAt: result.observedAt, excludedEntries: result.excludedEntries, rootIdentity: result.rootIdentity)
             }
             selected.subtract(moved)
             history?.record(scope: root.path, outcome: "Limpeza: \(report.movedCount) enviados à Lixeira", itemCount: report.entries.count, report: report)

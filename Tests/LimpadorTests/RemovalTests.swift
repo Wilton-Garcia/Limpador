@@ -11,7 +11,7 @@ struct RemovalTests {
         for name in ["good", "changed", "failed"] { try Data([1]).write(to: root.appendingPathComponent(name)) }
         let scan = try FileAnalyzer.scan(root, excluding: .init(paths: []))
         try Data([2, 3]).write(to: root.appendingPathComponent("changed"))
-        let report = await FileRemoval.run(scan.files, policy: RemovalPolicy(root: root), running: { RunningAppGuard(apps: []) }) { url in
+        let report = await FileRemoval.run(scan.files, policy: RemovalPolicy(root: root, expectedRoot: scan.rootIdentity), running: { RunningAppGuard(apps: []) }) { url in
             if url.lastPathComponent == "failed" { throw CocoaError(.fileWriteNoPermission) }
             let output = destination.appendingPathComponent(url.lastPathComponent)
             try FileManager.default.moveItem(at: url, to: output)
@@ -31,8 +31,9 @@ struct TrashReceiptTests {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
         try Data([1]).write(to: root.appendingPathComponent("sample"))
-        let files = try FileAnalyzer.scan(root, excluding: .init(paths: [])).files
-        let report = await FileRemoval.run(files, policy: RemovalPolicy(root: root), running: { RunningAppGuard(apps: []) }, transport: { _ in nil })
+        let scan = try FileAnalyzer.scan(root, excluding: .init(paths: []))
+        let files = scan.files
+        let report = await FileRemoval.run(files, policy: RemovalPolicy(root: root, expectedRoot: scan.rootIdentity), running: { RunningAppGuard(apps: []) }, transport: { _ in nil })
         #expect(report.movedCount == 1)
         #expect(report.entries.first?.destination == nil)
     }

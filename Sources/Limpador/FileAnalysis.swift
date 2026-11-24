@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 
 struct AnalyzedFile: Identifiable, Sendable, Codable {
     let path: String
@@ -37,6 +38,7 @@ struct FileAnalysis: Sendable {
     var unreadableEntries: Int { issues.count }
     let observedAt: Date
     var excludedEntries = 0
+    var rootIdentity: TreeItemIdentity? = nil
     var bytes: Int64 { files.reduce(0) { $0 + $1.bytes } }
     func distribution(byCategory: Bool) -> [(name: String, bytes: Int64)] {
         let groups = Dictionary(grouping: files) { file in
@@ -52,8 +54,8 @@ enum FileAnalyzer {
         var excluded = 0
         if exclusions.contains(root.path) { return FileAnalysis(root: root, files: [], issues: [], observedAt: Date(), excludedEntries: 1) }
         let keys: Set<URLResourceKey> = [.isSymbolicLinkKey, .isRegularFileKey, .isDirectoryKey]
-        let rootFacts = try root.resourceValues(forKeys: keys)
-        guard rootFacts.isDirectory == true, rootFacts.isSymbolicLink != true else {
+        let rootIdentity = try TreeItemIdentity.read(root.path)
+        guard rootIdentity.mode & S_IFMT == S_IFDIR else {
             throw CocoaError(.fileReadUnsupportedScheme)
         }
         var issues: [FileReadIssue] = []
@@ -76,6 +78,6 @@ enum FileAnalyzer {
             } catch { issues.append(FileReadIssue(path: url.path, reason: error.localizedDescription)) }
         }
         try Task.checkCancellation()
-        return FileAnalysis(root: root, files: files.sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }, issues: issues, observedAt: Date(), excludedEntries: excluded)
+        return FileAnalysis(root: root, files: files.sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }, issues: issues, observedAt: Date(), excludedEntries: excluded, rootIdentity: rootIdentity)
     }
 }

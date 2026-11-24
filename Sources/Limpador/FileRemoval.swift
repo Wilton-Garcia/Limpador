@@ -17,8 +17,10 @@ struct RemovalReport: Codable, Sendable {
 
 struct RemovalPolicy: Sendable {
     let root: URL
+    var expectedRoot: TreeItemIdentity? = nil
     var home = FileManager.default.homeDirectoryForCurrentUser
     func refusal(for file: AnalyzedFile, running: RunningAppGuard) -> String? {
+        guard let expectedRoot, let currentRoot = try? TreeItemIdentity.read(root.path), expectedRoot.sameObject(as: currentRoot) else { return "A pasta de origem mudou ou não teve identidade registrada. Analise novamente." }
         guard let expected = file.identity else { return "Identidade não registrada. Analise novamente." }
         guard let current = try? FileIdentity.read(file.path), current == expected else { return "Arquivo alterado ou indisponível. Analise novamente." }
         guard current.owner == getuid() else { return "O arquivo pertence a outra conta." }

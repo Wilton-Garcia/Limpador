@@ -43,3 +43,24 @@ struct RecoveryEstimate: Sendable {
         return Self(logicalBytes: logical, allocatedBytes: allocated, unverified: unverified, sharedLinks: shared)
     }
 }
+
+struct TreeItemIdentity: Sendable, Equatable {
+    let device: Int32
+    let inode: UInt64
+    let mode: UInt16
+    let owner: UInt32
+    let size: Int64
+    let modifiedSeconds: Int64
+    let modifiedNanos: Int64
+    let changedSeconds: Int64
+    let changedNanos: Int64
+    func sameObject(as other: Self) -> Bool { device == other.device && inode == other.inode && mode == other.mode && owner == other.owner }
+    static func read(_ path: String) throws -> Self {
+        var value = stat()
+        guard lstat(path, &value) == 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+        return Self(device: value.st_dev, inode: value.st_ino, mode: value.st_mode, owner: value.st_uid, size: value.st_size,
+                    modifiedSeconds: Int64(value.st_mtimespec.tv_sec), modifiedNanos: Int64(value.st_mtimespec.tv_nsec),
+                    changedSeconds: Int64(value.st_ctimespec.tv_sec), changedNanos: Int64(value.st_ctimespec.tv_nsec))
+    }
+}
+

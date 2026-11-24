@@ -151,7 +151,7 @@ struct FileReviewView: View {
                 self.result = FileAnalysis(root: result.root, files: result.files.filter { !moved.contains($0.path) }, unreadableEntries: result.unreadableEntries, observedAt: result.observedAt, excludedEntries: result.excludedEntries)
             }
             selected.subtract(moved)
-            history?.record(scope: root.path, outcome: "Limpeza: \(report.movedCount) enviados à Lixeira", itemCount: report.entries.count)
+            history?.record(scope: root.path, outcome: "Limpeza: \(report.movedCount) enviados à Lixeira", itemCount: report.entries.count, report: report)
             approvedFiles = []; removalTask = nil
         }
     }

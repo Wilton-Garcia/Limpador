@@ -8,6 +8,7 @@ struct AnalysisRecord: Codable, Identifiable {
     let outcome: String
     let itemCount: Int?
     let bytes: Int64?
+    let cleanupReport: RemovalReport?
 }
 
 @MainActor @Observable
@@ -28,8 +29,8 @@ final class AnalysisHistory {
         }
     }
 
-    func record(scope: String, outcome: String, itemCount: Int? = nil, bytes: Int64? = nil) {
-        records.insert(AnalysisRecord(id: UUID(), date: Date(), scope: scope, outcome: outcome, itemCount: itemCount, bytes: bytes), at: 0)
+    func record(scope: String, outcome: String, itemCount: Int? = nil, bytes: Int64? = nil, report: RemovalReport? = nil) {
+        records.insert(AnalysisRecord(id: UUID(), date: Date(), scope: scope, outcome: outcome, itemCount: itemCount, bytes: bytes, cleanupReport: report), at: 0)
         guard canWrite else { return }
         do {
             try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)

@@ -36,6 +36,7 @@ struct ContentView: View {
     @State private var destination: Destination = .overview
     @State private var cleaner = CleanupModel()
     @State private var search = ""
+    @State private var historicalReport: RemovalReport?
     @State private var inspectedApplication: InstalledApplication?
     @AppStorage("compactNumbers") private var compactNumbers = true
     @AppStorage("appearance") private var appearance = "system"
@@ -70,6 +71,12 @@ struct ContentView: View {
         }
         .foregroundStyle(Palette.ink)
         .tint(Palette.teal)
+        .sheet(isPresented: Binding(get: { historicalReport != nil }, set: { if !$0 { historicalReport = nil } })) {
+            VStack(spacing: 15) {
+                HStack { Spacer(); Button("Concluir") { historicalReport = nil } }
+                if let historicalReport { RemovalReportView(report: historicalReport) }
+            }.padding(24).frame(minWidth: 740, minHeight: 500)
+        }
         .sheet(item: $inspectedApplication) { app in FileReviewView(root: app.url) }
         .task { if scanOnLaunch { await mac.refresh() } }
         .onDisappear { cleaner.cancel(); mac.cancel() }
@@ -318,7 +325,7 @@ struct ContentView: View {
 
     private var history: some View {
         Group {
-            heading("Cada cuidado fica registrado.", subtitle: "Histórico local de análises. Limpezas aparecerão aqui quando forem implementadas.")
+            heading("Cada cuidado fica registrado.", subtitle: "Histórico local de análises e limpezas, incluindo o resultado por arquivo.")
             if let error = mac.history.error { notice("Histórico", detail: error) }
             if mac.history.records.isEmpty {
                 ContentUnavailableView("Nenhuma análise registrada", systemImage: "clock", description: Text("Atualize os dados do Mac para registrar uma análise."))
@@ -333,6 +340,7 @@ struct ContentView: View {
                             Spacer()
                             VStack(alignment: .trailing, spacing: 6) {
                                 Text(record.outcome)
+                                if let report = record.cleanupReport { Button("Ver relatório") { historicalReport = report } }
                                 if let count = record.itemCount { Text("\(count) itens").font(.caption).foregroundStyle(Palette.muted) }
                             }
                         }.padding(20)

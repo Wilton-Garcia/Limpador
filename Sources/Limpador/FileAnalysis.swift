@@ -7,7 +7,9 @@ struct AnalyzedFile: Identifiable, Sendable, Codable {
     let modifiedAt: Date?
     let relativePath: String
     let identity: FileIdentity?
-    init(path: String, bytes: Int64, modifiedAt: Date?, relativePath: String? = nil, identity: FileIdentity? = nil) {
+    let isHidden: Bool?
+    init(path: String, bytes: Int64, modifiedAt: Date?, relativePath: String? = nil, identity: FileIdentity? = nil, isHidden: Bool? = nil) {
+        self.isHidden = isHidden
         self.identity = identity
         self.path = path; self.bytes = bytes; self.modifiedAt = modifiedAt
         self.relativePath = relativePath ?? URL(fileURLWithPath: path).lastPathComponent
@@ -26,6 +28,18 @@ struct AnalyzedFile: Identifiable, Sendable, Codable {
     }
 }
 
+struct AnalyzedDirectory: Sendable {
+    let path: String
+    let relativePath: String
+    let isHidden: Bool?
+    let isPackage: Bool?
+}
+
+struct FileScanProgress: Sendable {
+    let entriesExamined: Int
+    let logicalBytes: Int64
+}
+
 struct FileReadIssue: Sendable {
     let path: String
     let reason: String
@@ -39,6 +53,8 @@ struct FileAnalysis: Sendable {
     let observedAt: Date
     var excludedEntries = 0
     var rootIdentity: TreeItemIdentity? = nil
+    var directories: [AnalyzedDirectory] = []
+    var skippedLinks = 0
     var bytes: Int64 { files.reduce(0) { $0 + $1.bytes } }
     func distribution(byCategory: Bool) -> [(name: String, bytes: Int64)] {
         let groups = Dictionary(grouping: files) { file in
@@ -50,21 +66,26 @@ struct FileAnalysis: Sendable {
 }
 
 enum FileAnalyzer {
-    static func scan(_ root: URL, excluding exclusions: AnalysisExclusions = .load()) throws -> FileAnalysis {
+    static func scan(_ root: URL, excluding exclusions: AnalysisExclusions = .load(), onProgress: @Sendable (FileScanProgress) -> Void = { _ in }) throws -> FileAnalysis {
         var excluded = 0
         if exclusions.contains(root.path) { return FileAnalysis(root: root, files: [], issues: [], observedAt: Date(), excludedEntries: 1) }
-        let keys: Set<URLResourceKey> = [.isSymbolicLinkKey, .isRegularFileKey, .isDirectoryKey]
+        let keys: Set<URLResourceKey> = [.isSymbolicLinkKey, .isRegularFileKey, .isDirectoryKey, .isHiddenKey, .isPackageKey]
         let rootIdentity = try TreeItemIdentity.read(root.path)
         guard rootIdentity.mode & S_IFMT == S_IFDIR else {
             throw CocoaError(.fileReadUnsupportedScheme)
         }
         var issues: [FileReadIssue] = []
         var files: [AnalyzedFile] = []
+        var directories: [AnalyzedDirectory] = []
+        var examined = 0, skippedLinks = 0
+        var logicalBytes: Int64 = 0
         guard let entries = FileManager.default.enumerator(at: root, includingPropertiesForKeys: Array(keys), options: [], errorHandler: { url, error in
             issues.append(FileReadIssue(path: url.path, reason: error.localizedDescription)); return true
         }) else { throw CocoaError(.fileReadNoPermission) }
         for case let url as URL in entries {
             try Task.checkCancellation()
+            examined += 1
+            if examined % 256 == 0 { onProgress(FileScanProgress(entriesExamined: examined, logicalBytes: logicalBytes)) }
             if exclusions.contains(url.path) {
                 excluded += 1
                 if (try? url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])).map({ $0.isDirectory == true && $0.isSymbolicLink != true }) == true { entries.skipDescendants() }
@@ -72,12 +93,20 @@ enum FileAnalyzer {
             }
             do {
                 let facts = try url.resourceValues(forKeys: keys)
-                guard facts.isSymbolicLink != true, facts.isRegularFile == true else { continue }
+                if facts.isSymbolicLink == true { skippedLinks += 1; continue }
+                let relative = url.pathComponents.suffix(entries.level).joined(separator: "/")
+                if facts.isDirectory == true {
+                    directories.append(AnalyzedDirectory(path: url.path, relativePath: relative, isHidden: facts.isHidden, isPackage: facts.isPackage))
+                    continue
+                }
+                guard facts.isRegularFile == true else { continue }
                 let identity = try FileIdentity.read(url.path)
-                files.append(AnalyzedFile(path: url.path, bytes: identity.bytes, modifiedAt: identity.modifiedAt, relativePath: url.pathComponents.suffix(entries.level).joined(separator: "/"), identity: identity))
+                files.append(AnalyzedFile(path: url.path, bytes: identity.bytes, modifiedAt: identity.modifiedAt, relativePath: relative, identity: identity, isHidden: facts.isHidden))
+                logicalBytes += identity.bytes
             } catch { issues.append(FileReadIssue(path: url.path, reason: error.localizedDescription)) }
         }
         try Task.checkCancellation()
-        return FileAnalysis(root: root, files: files.sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }, issues: issues, observedAt: Date(), excludedEntries: excluded, rootIdentity: rootIdentity)
+        onProgress(FileScanProgress(entriesExamined: examined, logicalBytes: logicalBytes))
+        return FileAnalysis(root: root, files: files.sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }, issues: issues, observedAt: Date(), excludedEntries: excluded, rootIdentity: rootIdentity, directories: directories, skippedLinks: skippedLinks)
     }
 }

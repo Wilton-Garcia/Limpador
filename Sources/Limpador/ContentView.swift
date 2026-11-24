@@ -14,7 +14,7 @@ private enum Palette {
 private enum Destination: String, CaseIterable, Identifiable {
     case overview = "Visão geral"
     case cleanup = "Limpeza"
-    case storage = "Armazenamento"
+    case storage = "Lupa de Espaço"
     case apps = "Aplicativos"
     case startup = "Inicialização"
     case monitor = "Monitoramento"
@@ -25,7 +25,7 @@ private enum Destination: String, CaseIterable, Identifiable {
         switch self {
         case .overview: "square.grid.2x2"
         case .cleanup: "sparkles"
-        case .storage: "internaldrive"
+        case .storage: "square.grid.3x3"
         case .apps: "square.stack.3d.up"
         case .startup: "power"
         case .monitor: "waveform.path.ecg"
@@ -39,6 +39,7 @@ struct ContentView: View {
     @State private var mac = MacDataModel()
     @State private var destination: Destination = .overview
     @State private var cleaner = CleanupModel()
+    @State private var spaceLens = SpaceLensModel()
     @State private var search = ""
     @State private var applicationOrder: ApplicationQuery.Order = .name
     @State private var historicalReport: RemovalReport?
@@ -91,7 +92,7 @@ struct ContentView: View {
         .sheet(item: $dataApplication) { app in ApplicationDataView(app: app, identityMatches: mac.inventory?.apps.filter { $0.bundleID == app.bundleID }.count ?? 1, history: mac.history) }
         .sheet(item: $inspectedApplication) { app in FileReviewView(root: app.url) }
         .task { if scanOnLaunch { await mac.refresh() } }
-        .onDisappear { cleaner.cancel(); mac.cancel() }
+        .onDisappear { cleaner.cancel(); mac.cancel(); spaceLens.cancel() }
     }
 
     private var sidebar: some View {
@@ -245,7 +246,7 @@ struct ContentView: View {
 
     private var storage: some View {
         Group {
-            FolderUsageView { analysis in mac.history.record(scope: analysis.root.path, outcome: analysis.unreadableEntries == 0 ? "Concluída" : "Parcial", itemCount: analysis.files.count, bytes: analysis.bytes) }
+            SpaceLensView(model: spaceLens, history: mac.history)
             heading("Espaço para enxergar melhor.", subtitle: "Capacidade do volume que contém sua pasta pessoal, informada pelo macOS.")
             refreshBar
             if let disk = mac.disk {

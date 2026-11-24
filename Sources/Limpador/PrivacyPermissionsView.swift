@@ -30,7 +30,7 @@ struct PrivacyPermissionsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Permissões e áreas protegidas").font(.headline)
-            Text("O macOS pode bloquear a leitura de Mail, Lixeira e outras áreas. Para analisar essas áreas, abra Privacidade e Segurança → Acesso Total ao Disco, adicione este Limpador e reabra o aplicativo. A escolha de uma pasta na análise também permite conceder acesso àquela seleção.").font(.caption).foregroundStyle(.secondary)
+            Text("O macOS pode bloquear a leitura de Lixeira, pastas de suporte e outras áreas. Para analisar essas áreas, abra Privacidade e Segurança → Acesso Total ao Disco, adicione este Limpador e reabra o aplicativo. A escolha de uma pasta na análise também permite conceder acesso àquela seleção.").font(.caption).foregroundStyle(.secondary)
             HStack {
                 Button("Abrir Acesso Total ao Disco") { NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles")!) }
                 Button("Mostrar este Limpador no Finder") { NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL]) }
@@ -50,7 +50,7 @@ struct PrivacyPermissionsView: View {
             loading = true
             defer { loading = false }
             let home = FileManager.default.homeDirectoryForCurrentUser
-            let paths = [home.appendingPathComponent("Library/Mail"), home.appendingPathComponent(".Trash"), home.appendingPathComponent("Library/Caches")]
+            let paths = [home.appendingPathComponent(".Trash"), home.appendingPathComponent("Library/Caches")]
             let worker = Task.detached(priority: .utility) { paths.map(PermissionProbe.inspect) }
             let report = await worker.value
             guard !Task.isCancelled else { return }

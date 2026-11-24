@@ -4,8 +4,10 @@ import QuickLookUI
 struct FileReviewView: View {
     let root: URL
     var initialResult: FileAnalysis? = nil
+    var selectionTitle: String? = nil
     var allowsRemoval = false
     var history: AnalysisHistory? = nil
+    var onRemoval: (RemovalReport) -> Void = { _ in }
     @Environment(\.dismiss) private var dismiss
     @State private var result: FileAnalysis?
     @State private var error: String?
@@ -26,7 +28,7 @@ struct FileReviewView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 5) {
                     Text("Revisar arquivos").font(.title2.bold())
-                    Text(root.path).font(.caption).textSelection(.enabled)
+                    Text(selectionTitle ?? root.path).font(.caption).textSelection(.enabled)
                 }
                 Spacer()
                 Button("Concluir") { dismiss() }.keyboardShortcut(.cancelAction)
@@ -156,9 +158,10 @@ struct FileReviewView: View {
             let worker = Task.detached(priority: .utility) { await FileRemoval.run(files, policy: policy) }
             let report = await withTaskCancellationHandler { await worker.value } onCancel: { worker.cancel() }
             removalReport = report
+            onRemoval(report)
             let moved = Set(report.entries.filter { $0.outcome == .trashed }.map(\.path))
             if let result {
-                self.result = FileAnalysis(root: result.root, files: result.files.filter { !moved.contains($0.path) }, issues: result.issues, observedAt: result.observedAt, excludedEntries: result.excludedEntries, rootIdentity: result.rootIdentity)
+                self.result = FileAnalysis(root: result.root, files: result.files.filter { !moved.contains($0.path) }, issues: result.issues, observedAt: result.observedAt, excludedEntries: result.excludedEntries, rootIdentity: result.rootIdentity, directories: result.directories, skippedLinks: result.skippedLinks)
             }
             selected.subtract(moved)
             history?.record(scope: root.path, outcome: "Limpeza: \(report.movedCount) enviados à Lixeira", itemCount: report.entries.count, report: report)

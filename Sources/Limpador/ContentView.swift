@@ -31,35 +31,17 @@ private enum Destination: String, CaseIterable, Identifiable {
     }
 }
 
-private struct CleanupCategory: Identifiable {
-    let id: String
-    let title: String
-    let subtitle: String
-    let size: String
-    let symbol: String
-    let color: Color
-}
-
-private let categories = [
-    CleanupCategory(id: "cache", title: "Caches de aplicativos", subtitle: "Arquivos temporários usados pelos aplicativos", size: "6,2 GB", symbol: "shippingbox", color: .orange),
-    CleanupCategory(id: "logs", title: "Registros do sistema", subtitle: "Relatórios e registros de atividades anteriores", size: "1,8 GB", symbol: "doc.text", color: .blue),
-    CleanupCategory(id: "downloads", title: "Downloads antigos", subtitle: "Arquivos para você revisar antes de remover", size: "4,4 GB", symbol: "arrow.down.circle", color: Palette.teal)
-]
-
 struct ContentView: View {
     @State private var mac = MacDataModel()
     @State private var destination: Destination = .overview
-    @State private var progress = 0.0
-    @State private var scanTask: Task<Void, Never>?
-    @State private var hasResults = false
-    @State private var selected: Set<String> = ["cache", "logs"]
+    @State private var cleaner = CleanupModel()
     @State private var search = ""
     @State private var inspectedApplication: InstalledApplication?
-    @State private var showRemovalNotice = false
     @AppStorage("compactNumbers") private var compactNumbers = true
     @AppStorage("appearance") private var appearance = "system"
     @AppStorage("scanOnLaunch") private var scanOnLaunch = true
-    private var isScanning: Bool { scanTask != nil }
+    private var isScanning: Bool { cleaner.loading }
+    private var hasResults: Bool { cleaner.result != nil }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -88,14 +70,9 @@ struct ContentView: View {
         }
         .foregroundStyle(Palette.ink)
         .tint(Palette.teal)
-        .alert("Interface em demonstração", isPresented: $showRemovalNotice) {
-            Button("Entendi", role: .cancel) {}
-        } message: {
-            Text("Os resultados são exemplos. Nenhum arquivo foi acessado ou removido. A limpeza real estará disponível quando o motor de análise for implementado.")
-        }
         .sheet(item: $inspectedApplication) { app in FileReviewView(root: app.url) }
         .task { if scanOnLaunch { await mac.refresh() } }
-        .onDisappear { cancelScan(); mac.cancel() }
+        .onDisappear { cleaner.cancel(); mac.cancel() }
     }
 
     private var sidebar: some View {
@@ -162,7 +139,7 @@ struct ContentView: View {
             Spacer()
             HStack(spacing: 6) {
                 Circle().fill(Color.orange).frame(width: 6, height: 6)
-                Text(destination == .cleanup ? "Limpeza demonstrativa" : "Leitura local").font(.system(size: 11, weight: .medium))
+                Text("Leitura local").font(.system(size: 11, weight: .medium))
             }
             .foregroundStyle(Palette.muted)
             .padding(.horizontal, 12).padding(.vertical, 7)
@@ -177,7 +154,7 @@ struct ContentView: View {
             heading("Menos excesso. Mais possibilidades.", subtitle: "Cuide do seu Mac e abra espaço para suas próximas ideias.")
             hero
             AdaptiveRow {
-                metric("Espaço recuperável", value: hasResults ? "12,4 GB" : "—", caption: hasResults ? "Em 3 categorias de exemplo" : "Faça uma análise de demonstração", symbol: "sparkles", color: Palette.teal)
+                metric("Arquivos analisados", value: cleaner.result.map { bytes($0.bytes) } ?? "—", caption: cleaner.source?.title ?? "Analise os caches do usuário", symbol: "sparkles", color: Palette.teal, example: false)
                 metric("Armazenamento disponível", value: mac.disk.map { bytes($0.available) } ?? "—", caption: mac.disk.map { "de " + bytes($0.total) } ?? "Consulte Armazenamento", symbol: "internaldrive", color: .blue, example: false)
                 metric("Aplicativos", value: mac.inventory.map { String($0.apps.count) } ?? "—", caption: mac.loading ? "Lendo aplicativos…" : "Nas pastas de aplicativos", symbol: "square.stack.3d.up", color: .orange, example: false)
             }
@@ -210,21 +187,20 @@ struct ContentView: View {
                 Text(isScanning ? "Encontrando espaço\npara o que vem aí." : hasResults ? "Um pouco de cuidado.\nMuito mais espaço." : "Seu próximo começo\ncabe aqui.")
                     .font(.system(size: 31, weight: .medium, design: .rounded)).tracking(-0.8).lineSpacing(1)
                     .fixedSize(horizontal: false, vertical: true)
-                Text(isScanning ? "Simulando uma análise. Seus arquivos não são acessados." : "Uma visão simples do que pode deixar seu Mac mais leve.")
+                Text(isScanning ? "Lendo arquivos. Nenhum item é removido." : "Uma visão simples do que pode deixar seu Mac mais leve.")
                     .font(.system(size: 12)).foregroundStyle(Color.white.opacity(0.7)).lineSpacing(3)
                 HStack(spacing: 12) {
                     Button {
-                        if isScanning { cancelScan() }
-                        else if hasResults { destination = .cleanup }
-                        else { startScan() }
+                        if isScanning { cleaner.cancel() }
+                        else { destination = .cleanup; Task { await cleaner.scan(CleanupSource.sources[0], history: mac.history) } }
                     } label: {
-                        Label(isScanning ? "Cancelar" : hasResults ? "Revisar exemplos" : "Experimentar análise", systemImage: isScanning ? "xmark" : "arrow.right")
+                        Label(isScanning ? "Cancelar" : hasResults ? "Analisar novamente" : "Analisar caches", systemImage: isScanning ? "xmark" : "arrow.right")
                             .font(.system(size: 12, weight: .semibold))
                             .padding(.horizontal, 18).padding(.vertical, 12)
                             .foregroundStyle(Color(red: 0.13, green: 0.20, blue: 0.23))
                             .background(Color(red: 0.83, green: 0.94, blue: 0.68), in: Capsule())
                     }.buttonStyle(.plain)
-                    if isScanning { Text("\(Int(progress * 100))%").font(.system(size: 12, design: .monospaced)) }
+                    if isScanning { ProgressView().controlSize(.small) }
                 }.padding(.top, 7)
             }
     }
@@ -233,7 +209,7 @@ struct ContentView: View {
             ZStack {
                 Circle().stroke(.white.opacity(0.06), lineWidth: 1).frame(width: 236, height: 236)
                 Circle().stroke(.white.opacity(0.08), lineWidth: 1).frame(width: 198, height: 198)
-                Circle().trim(from: 0.08, to: isScanning ? max(0.09, progress) : 0.80)
+                Circle().trim(from: 0.08, to: 0.80)
                     .stroke(AngularGradient(colors: [.clear, Color(red: 0.62, green: 0.86, blue: 0.64), .white.opacity(0.9)], center: .center), style: StrokeStyle(lineWidth: 19, lineCap: .round))
                     .frame(width: 155, height: 155).rotationEffect(.degrees(-90))
                 VStack(spacing: 8) {
@@ -244,47 +220,7 @@ struct ContentView: View {
             }.frame(width: 240, height: 240).accessibilityHidden(true)
     }
 
-    private var cleanup: some View {
-        Group {
-            heading("Cada arquivo, uma escolha.", subtitle: "Revise as categorias e escolha o que faz sentido para você.")
-            if !hasResults {
-                hero
-            } else {
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack {
-                        Text("Resultados de demonstração").font(.system(size: 17, weight: .semibold))
-                        Spacer()
-                        Button("Selecionar tudo") { selected = Set(categories.map(\.id)) }
-                    }.padding(22)
-                    ForEach(categories) { category in
-                        Divider().overlay(Palette.line)
-                        Toggle(isOn: Binding(get: { selected.contains(category.id) }, set: { value in
-                            if value { selected.insert(category.id) } else { selected.remove(category.id) }
-                        })) {
-                            HStack(spacing: 15) {
-                                icon(category.symbol, color: category.color)
-                                VStack(alignment: .leading, spacing: 5) {
-                                    Text(category.title).font(.system(size: 14, weight: .semibold))
-                                    Text(category.subtitle).font(.system(size: 12)).foregroundStyle(Palette.muted)
-                                }
-                                Spacer()
-                                Text(category.size).font(.system(size: 15, weight: .semibold, design: .rounded))
-                            }
-                        }.toggleStyle(.checkbox).padding(22)
-                    }
-                    Divider()
-                    HStack {
-                        Text("\(selected.count) categorias selecionadas").font(.system(size: 12)).foregroundStyle(Palette.muted)
-                        Spacer()
-                        Button("Simular limpeza") { showRemovalNotice = true }
-                            .buttonStyle(.borderedProminent).disabled(selected.isEmpty)
-                    }.padding(22)
-                }.card()
-                Button("Refazer demonstração") { startScan() }.buttonStyle(.link)
-                if isScanning { ProgressView(value: progress).accessibilityLabel("Progresso da demonstração") }
-            }
-        }
-    }
+    private var cleanup: some View { CleanupDashboard(model: cleaner, history: mac.history) }
 
     private var storage: some View {
         Group {
@@ -413,7 +349,7 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 22) {
                 Label("Sobre esta versão", systemImage: "info.circle").font(.system(size: 17, weight: .semibold))
                 Text("Limpador 0.1 · Swift + SwiftUI").font(.system(size: 13))
-                Text("Armazenamento e aplicativos usam leituras reais do Mac. A limpeza de caches continua em demonstração, sem remover arquivos.").font(.system(size: 13)).foregroundStyle(Palette.muted).lineSpacing(5)
+                Text("Armazenamento, aplicativos e caches usam leituras reais. A revisão ainda não remove arquivos.").font(.system(size: 13)).foregroundStyle(Palette.muted).lineSpacing(5)
                 Divider()
                 Picker("Aparência", selection: $appearance) {
                     Text("Seguir sistema").tag("system")
@@ -471,31 +407,11 @@ struct ContentView: View {
     private var demoFooter: some View {
         HStack(spacing: 6) {
             Image(systemName: "info.circle")
-            Text("Armazenamento e aplicativos: dados locais · Limpeza: demonstração · Nenhum arquivo é removido")
+            Text("Dados locais · Análises reais · Nenhum arquivo é removido")
         }.font(.system(size: 10)).foregroundStyle(Palette.muted).padding(.top, 2)
     }
 
-    private func startScan() {
-        guard scanTask == nil else { return }
-        progress = 0
-        hasResults = false
-        scanTask = Task { @MainActor in
-            for step in 1...30 {
-                do { try await Task.sleep(for: .milliseconds(100)) }
-                catch { return }
-                guard !Task.isCancelled else { return }
-                withAnimation(.easeInOut(duration: 0.15)) { progress = Double(step) / 30 }
-            }
-            hasResults = true
-            scanTask = nil
-        }
-    }
 
-    private func cancelScan() {
-        scanTask?.cancel()
-        scanTask = nil
-        progress = 0
-    }
 }
 
 private extension View {

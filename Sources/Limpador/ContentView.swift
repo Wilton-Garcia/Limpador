@@ -36,6 +36,7 @@ struct ContentView: View {
     @State private var destination: Destination = .overview
     @State private var cleaner = CleanupModel()
     @State private var search = ""
+    @State private var applicationOrder: ApplicationQuery.Order = .name
     @State private var historicalReport: RemovalReport?
     @State private var inspectedApplication: InstalledApplication?
     @AppStorage("compactNumbers") private var compactNumbers = true
@@ -266,9 +267,10 @@ struct ContentView: View {
             TextField("Buscar por nome ou caminho", text: $search)
                 .textFieldStyle(.roundedBorder).frame(maxWidth: 360)
             if let inventory = mac.inventory {
-                let filtered = inventory.apps.filter {
-                    search.isEmpty || $0.name.localizedStandardContains(search) || $0.url.path.localizedStandardContains(search)
-                }
+                let filtered = ApplicationQuery(search: search, order: applicationOrder).apply(to: inventory.apps)
+                Picker("Ordenar aplicativos", selection: $applicationOrder) {
+                    ForEach(ApplicationQuery.Order.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                }.frame(maxWidth: 340)
                 Text("\(filtered.count) de \(inventory.apps.count) aplicativos · " + inventory.observedAt.formatted(date: .omitted, time: .standard))
                     .font(.system(size: 12)).foregroundStyle(Palette.muted)
                 if !inventory.issues.isEmpty {

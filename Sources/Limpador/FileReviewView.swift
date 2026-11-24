@@ -1,4 +1,5 @@
 import SwiftUI
+import QuickLookUI
 
 struct FileReviewView: View {
     let root: URL
@@ -9,6 +10,7 @@ struct FileReviewView: View {
     @State private var query = FileQuery()
     @State private var ageMonths = 0
     @State private var findingDuplicates = false
+    @State private var previewURL: URL?
     @State private var selected: Set<String> = []
 
     var body: some View {
@@ -69,6 +71,8 @@ struct FileReviewView: View {
                         }.toggleStyle(.checkbox)
                         Spacer()
                         Text(ByteCountFormatter.string(fromByteCount: file.bytes, countStyle: .file)).monospacedDigit()
+                        Button { previewURL = file.url } label: { Image(systemName: "eye") }
+                            .help("Visualização rápida").accessibilityLabel("Visualizar \(file.url.lastPathComponent)")
                         Button { NSWorkspace.shared.activateFileViewerSelecting([file.url]) } label: { Image(systemName: "folder") }
                             .help("Mostrar no Finder").accessibilityLabel("Mostrar \(file.url.lastPathComponent) no Finder")
                     }.padding(.vertical, 5)
@@ -80,6 +84,7 @@ struct FileReviewView: View {
                 ProgressView("Lendo arquivos…").frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }.padding(24).frame(minWidth: 760, minHeight: 540)
+        .sheet(isPresented: Binding(get: { previewURL != nil }, set: { if !$0 { previewURL = nil } })) { if let previewURL { FilePreviewView(url: previewURL) } }
         .sheet(isPresented: $findingDuplicates) { if let result { DuplicateReviewView(files: result.files) } }
         .task(id: root) {
             if let initialResult { result = initialResult; return }

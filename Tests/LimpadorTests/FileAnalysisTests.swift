@@ -19,3 +19,14 @@ struct FileAnalysisTests {
         #expect(scan.unreadableEntries == 0)
     }
 }
+
+struct FileQueryTests {
+    @Test func filtersAndOrdersWithoutLosingOriginalSelectionIdentities() {
+        let files = [AnalyzedFile(path: "/a/photo.png", bytes: 20, modifiedAt: nil),
+                     AnalyzedFile(path: "/a/report.txt", bytes: 100, modifiedAt: Date(timeIntervalSince1970: 20)),
+                     AnalyzedFile(path: "/b/photo.png", bytes: 50, modifiedAt: Date(timeIntervalSince1970: 10))]
+        #expect(FileQuery(order: .largest).apply(to: files).map(\.bytes) == [100, 50, 20])
+        #expect(FileQuery(search: "photo", category: "Imagens", order: .newest).apply(to: files).map(\.path) == ["/b/photo.png", "/a/photo.png"])
+        #expect(FileQuery(order: .oldest).apply(to: files).last?.modifiedAt == nil)
+    }
+}

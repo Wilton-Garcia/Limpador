@@ -5,6 +5,7 @@ struct FileReviewView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var result: FileAnalysis?
     @State private var error: String?
+    @State private var query = FileQuery()
     @State private var selected: Set<String> = []
 
     var body: some View {
@@ -18,15 +19,26 @@ struct FileReviewView: View {
                 Button("Concluir") { dismiss() }.keyboardShortcut(.cancelAction)
             }
             if let result {
+                let filtered = query.apply(to: result.files)
+                HStack {
+                    TextField("Buscar arquivos", text: $query.search).textFieldStyle(.roundedBorder)
+                    Picker("Tipo", selection: $query.category) {
+                        ForEach(["Todas"] + Set(result.files.map(\.category)).sorted(), id: \.self) { Text($0).tag($0) }
+                    }.frame(width: 200)
+                    Picker("Ordenar", selection: $query.order) {
+                        ForEach(FileQuery.Order.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                    }.frame(width: 220)
+                }
+                Text("\(filtered.count) arquivos visíveis").font(.caption).foregroundStyle(.secondary)
                 Text("\(result.files.count) arquivos · \(selected.count) selecionados · " + ByteCountFormatter.string(fromByteCount: selectedBytes(result), countStyle: .file))
                 if result.unreadableEntries > 0 {
                     Label("Leitura parcial: \(result.unreadableEntries) entradas inacessíveis", systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
                 }
                 HStack {
-                    Button("Selecionar todos") { selected = Set(result.files.map(\.id)) }
+                    Button("Selecionar visíveis") { selected.formUnion(filtered.map(\.id)) }
                     Button("Desmarcar") { selected.removeAll() }.disabled(selected.isEmpty)
                 }
-                List(result.files) { file in
+                List(filtered) { file in
                     HStack {
                         Toggle(isOn: Binding(get: { selected.contains(file.id) }, set: { value in
                             if value { selected.insert(file.id) } else { selected.remove(file.id) }

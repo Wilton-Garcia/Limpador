@@ -1,11 +1,14 @@
 import SwiftUI
 
 private enum Palette {
-    static let ink = Color(red: 0.13, green: 0.20, blue: 0.23)
-    static let muted = Color(red: 0.44, green: 0.49, blue: 0.50)
-    static let canvas = Color(red: 0.97, green: 0.97, blue: 0.95)
-    static let teal = Color(red: 0.08, green: 0.43, blue: 0.38)
-    static let line = Color.black.opacity(0.07)
+    static let ink = Color(nsColor: .labelColor)
+    static let muted = Color(nsColor: .secondaryLabelColor)
+    static let canvas = Color(nsColor: .windowBackgroundColor)
+    static let surface = Color(nsColor: .controlBackgroundColor)
+    static let teal = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .systemMint : NSColor(red: 0.08, green: 0.43, blue: 0.38, alpha: 1)
+    })
+    static let line = Color.primary.opacity(0.10)
 }
 
 private enum Destination: String, CaseIterable, Identifiable {
@@ -54,6 +57,7 @@ struct ContentView: View {
     @State private var inspectedApplication: InstalledApplication?
     @State private var showRemovalNotice = false
     @AppStorage("compactNumbers") private var compactNumbers = true
+    @AppStorage("appearance") private var appearance = "system"
     @AppStorage("scanOnLaunch") private var scanOnLaunch = true
     private var isScanning: Bool { scanTask != nil }
 
@@ -122,7 +126,7 @@ struct ContentView: View {
                 }
             }
             .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.white.opacity(0.65), in: RoundedRectangle(cornerRadius: 16))
+            .background(Palette.canvas, in: RoundedRectangle(cornerRadius: 16))
             .padding(.bottom, 18)
             navigationButton(.settings)
             Text("LIMPADOR  /  0.1").font(.system(size: 9, weight: .medium, design: .monospaced))
@@ -130,7 +134,7 @@ struct ContentView: View {
         }
         .padding(.horizontal, 18).padding(.top, 48).padding(.bottom, 24)
         .frame(width: 225)
-        .background(Color(red: 0.93, green: 0.94, blue: 0.91))
+        .background(Palette.surface)
     }
 
     private func navigationButton(_ item: Destination) -> some View {
@@ -145,7 +149,7 @@ struct ContentView: View {
             }
             .foregroundStyle(destination == item ? Palette.teal : Palette.muted)
             .padding(.horizontal, 12).padding(.vertical, 13)
-            .background(destination == item ? Color.white : Color.clear, in: RoundedRectangle(cornerRadius: 10))
+            .background(destination == item ? Palette.canvas : Color.clear, in: RoundedRectangle(cornerRadius: 10))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain).padding(.bottom, 4)
@@ -162,7 +166,7 @@ struct ContentView: View {
             }
             .foregroundStyle(Palette.muted)
             .padding(.horizontal, 12).padding(.vertical, 7)
-            .background(.white, in: Capsule())
+            .background(Palette.surface, in: Capsule())
         }
         .padding(.horizontal, 32).frame(height: 68)
         .overlay(alignment: .bottom) { Rectangle().fill(Palette.line).frame(height: 1) }
@@ -172,7 +176,7 @@ struct ContentView: View {
         Group {
             heading("Menos excesso. Mais possibilidades.", subtitle: "Cuide do seu Mac e abra espaço para suas próximas ideias.")
             hero
-            HStack(spacing: 16) {
+            AdaptiveRow {
                 metric("Espaço recuperável", value: hasResults ? "12,4 GB" : "—", caption: hasResults ? "Em 3 categorias de exemplo" : "Faça uma análise de demonstração", symbol: "sparkles", color: Palette.teal)
                 metric("Armazenamento disponível", value: mac.disk.map { bytes($0.available) } ?? "—", caption: mac.disk.map { "de " + bytes($0.total) } ?? "Consulte Armazenamento", symbol: "internaldrive", color: .blue, example: false)
                 metric("Aplicativos", value: mac.inventory.map { String($0.apps.count) } ?? "—", caption: mac.loading ? "Lendo aplicativos…" : "Nas pastas de aplicativos", symbol: "square.stack.3d.up", color: .orange, example: false)
@@ -182,7 +186,7 @@ struct ContentView: View {
                 Spacer()
                 Text("NO SEU RITMO").font(.system(size: 9, weight: .semibold)).tracking(1.5).foregroundStyle(Palette.muted)
             }
-            HStack(spacing: 16) {
+            AdaptiveRow {
                 feature("Uma limpeza com critério", detail: "Revise caches e arquivos temporários antes de decidir.", symbol: "sparkles", color: Palette.teal, target: .cleanup)
                 feature("Seu espaço, à vista", detail: "Entenda o que ocupa o disco e encontre o que pode sair.", symbol: "chart.pie", color: .blue, target: .storage)
                 feature("Cada app no seu lugar", detail: "Veja os aplicativos e organize o que você usa.", symbol: "square.stack.3d.up", color: .orange, target: .apps)
@@ -191,7 +195,16 @@ struct ContentView: View {
     }
 
     private var hero: some View {
-        HStack(spacing: 24) {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 24) { heroText.frame(minWidth: 280); Spacer(minLength: 0); heroArtwork }
+            heroText.frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .foregroundStyle(.white).padding(30)
+        .frame(maxWidth: .infinity, minHeight: 290)
+        .background(LinearGradient(colors: [Color(red: 0.10, green: 0.24, blue: 0.22), Color(red: 0.15, green: 0.34, blue: 0.28)], startPoint: .leading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 22))
+    }
+
+    private var heroText: some View {
             VStack(alignment: .leading, spacing: 14) {
                 Text("UM NOVO RESPIRO PARA O SEU MAC").font(.system(size: 9, weight: .semibold)).tracking(1.8).foregroundStyle(Color.white.opacity(0.65))
                 Text(isScanning ? "Encontrando espaço\npara o que vem aí." : hasResults ? "Um pouco de cuidado.\nMuito mais espaço." : "Seu próximo começo\ncabe aqui.")
@@ -208,13 +221,15 @@ struct ContentView: View {
                         Label(isScanning ? "Cancelar" : hasResults ? "Revisar exemplos" : "Experimentar análise", systemImage: isScanning ? "xmark" : "arrow.right")
                             .font(.system(size: 12, weight: .semibold))
                             .padding(.horizontal, 18).padding(.vertical, 12)
-                            .foregroundStyle(Palette.ink)
+                            .foregroundStyle(Color(red: 0.13, green: 0.20, blue: 0.23))
                             .background(Color(red: 0.83, green: 0.94, blue: 0.68), in: Capsule())
                     }.buttonStyle(.plain)
                     if isScanning { Text("\(Int(progress * 100))%").font(.system(size: 12, design: .monospaced)) }
                 }.padding(.top, 7)
             }
-            Spacer(minLength: 0)
+    }
+
+    private var heroArtwork: some View {
             ZStack {
                 Circle().stroke(.white.opacity(0.06), lineWidth: 1).frame(width: 236, height: 236)
                 Circle().stroke(.white.opacity(0.08), lineWidth: 1).frame(width: 198, height: 198)
@@ -227,10 +242,6 @@ struct ContentView: View {
                         .font(.system(size: 12, weight: .medium, design: .rounded))
                 }
             }.frame(width: 240, height: 240).accessibilityHidden(true)
-        }
-        .foregroundStyle(.white).padding(30)
-        .frame(maxWidth: .infinity, minHeight: 290)
-        .background(LinearGradient(colors: [Color(red: 0.10, green: 0.24, blue: 0.22), Color(red: 0.15, green: 0.34, blue: 0.28)], startPoint: .leading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 22))
     }
 
     private var cleanup: some View {
@@ -351,7 +362,7 @@ struct ContentView: View {
                     .accessibilityLabel("Aplicativos medidos")
             }
             Spacer()
-            if mac.loading { Button("Cancelar") { mac.cancel() }.disabled(mac.cancelling) }
+            if mac.loading { Button("Cancelar") { mac.cancel() }.disabled(mac.cancelling).keyboardShortcut(".", modifiers: .command) }
             Button { Task { await mac.refresh() } } label: { Label("Atualizar", systemImage: "arrow.clockwise") }
                 .disabled(mac.loading)
         }
@@ -361,7 +372,7 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 8) {
             Label(title, systemImage: "exclamationmark.triangle").font(.system(size: 14, weight: .semibold))
             Text(detail).font(.system(size: 12)).textSelection(.enabled)
-        }.foregroundStyle(Palette.muted).padding(20).frame(maxWidth: .infinity, alignment: .leading).card()
+        }.foregroundStyle(Palette.muted).padding(20).frame(minWidth: 180, maxWidth: .infinity, alignment: .leading).card()
     }
 
     private func bytes(_ count: Int64) -> String {
@@ -403,6 +414,11 @@ struct ContentView: View {
                 Text("Limpador 0.1 · Swift + SwiftUI").font(.system(size: 13))
                 Text("Armazenamento e aplicativos usam leituras reais do Mac. A limpeza de caches continua em demonstração, sem remover arquivos.").font(.system(size: 13)).foregroundStyle(Palette.muted).lineSpacing(5)
                 Divider()
+                Picker("Aparência", selection: $appearance) {
+                    Text("Seguir sistema").tag("system")
+                    Text("Clara").tag("light")
+                    Text("Escura").tag("dark")
+                }.pickerStyle(.segmented)
                 Toggle("Mostrar tamanhos compactos", isOn: $compactNumbers)
                 Toggle("Ler aplicativos ao abrir o Limpador", isOn: $scanOnLaunch)
                 Text("Suas preferências são salvas neste Mac e restauradas ao abrir o aplicativo.")
@@ -430,7 +446,7 @@ struct ContentView: View {
                 Text(title).font(.system(size: 12, weight: .semibold))
                 Text(caption).font(.system(size: 10)).foregroundStyle(Palette.muted)
             }
-        }.padding(20).frame(maxWidth: .infinity, alignment: .leading).card()
+        }.padding(20).frame(minWidth: 180, maxWidth: .infinity, alignment: .leading).card()
     }
 
     private func feature(_ title: String, detail: String, symbol: String, color: Color, target: Destination) -> some View {
@@ -439,7 +455,7 @@ struct ContentView: View {
                 HStack { icon(symbol, color: color); Spacer(); Image(systemName: "arrow.up.right").foregroundStyle(Palette.muted) }
                 Text(title).font(.system(size: 13, weight: .semibold))
                 Text(detail).font(.system(size: 11)).foregroundStyle(Palette.muted).lineSpacing(4).fixedSize(horizontal: false, vertical: true)
-            }.padding(20).frame(maxWidth: .infinity, minHeight: 175, alignment: .topLeading).card().contentShape(Rectangle())
+            }.padding(20).frame(minWidth: 180, maxWidth: .infinity, minHeight: 175, alignment: .topLeading).card().contentShape(Rectangle())
         }.buttonStyle(.plain)
     }
 
@@ -481,7 +497,17 @@ struct ContentView: View {
 
 private extension View {
     func card() -> some View {
-        background(.white, in: RoundedRectangle(cornerRadius: 16))
+        background(Palette.surface, in: RoundedRectangle(cornerRadius: 16))
             .overlay { RoundedRectangle(cornerRadius: 16).stroke(Palette.line, lineWidth: 1) }
+    }
+}
+
+private struct AdaptiveRow<Content: View>: View {
+    @ViewBuilder var content: () -> Content
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top, spacing: 16, content: content)
+            VStack(alignment: .leading, spacing: 16, content: content)
+        }
     }
 }

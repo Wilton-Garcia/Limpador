@@ -14,7 +14,13 @@ struct CleanupDashboard: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(source.title).font(.headline)
                         Text(source.explanation).font(.caption).foregroundStyle(.secondary)
-                        Text(source.root.path).font(.caption2).foregroundStyle(.secondary).textSelection(.enabled)
+                        DisclosureGroup("Origem e finalidade") {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Origem: " + source.root.path).textSelection(.enabled)
+                                Text(source.explanation)
+                                Text("A categoria é definida pela pasta de origem. Ela não comprova que o arquivo esteja sem uso ou possa ser removido. Revise os itens individualmente.")
+                            }.font(.caption).foregroundStyle(.secondary).padding(.top, 6)
+                        }
                     }
                     Spacer()
                     Button("Analisar") { Task { await model.scan(source, history: history) } }.disabled(model.loading)

@@ -16,6 +16,7 @@ private enum Destination: String, CaseIterable, Identifiable {
     case cleanup = "Limpeza"
     case storage = "Armazenamento"
     case apps = "Aplicativos"
+    case monitor = "Monitoramento"
     case history = "Histórico"
     case settings = "Preferências"
     var id: String { rawValue }
@@ -25,6 +26,7 @@ private enum Destination: String, CaseIterable, Identifiable {
         case .cleanup: "sparkles"
         case .storage: "internaldrive"
         case .apps: "square.stack.3d.up"
+        case .monitor: "waveform.path.ecg"
         case .history: "clock.arrow.circlepath"
         case .settings: "slider.horizontal.3"
         }
@@ -60,6 +62,7 @@ struct ContentView: View {
                         case .cleanup: cleanup
                         case .storage: storage
                         case .apps: applications
+                        case .monitor: SystemMonitorView()
                         case .history: history
                         case .settings: settings
                         }

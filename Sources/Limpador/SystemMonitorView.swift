@@ -1,0 +1,52 @@
+import SwiftUI
+
+struct SystemMonitorView: View {
+    @State private var model = SystemMonitor()
+    var body: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            Text("Seu Mac, agora.").font(.title.bold())
+            Text("Leituras locais a cada 2 segundos enquanto esta tela está aberta.").foregroundStyle(.secondary)
+            if let sample = model.sample {
+                VStack(alignment: .leading, spacing: 18) {
+                    Text("CPU").font(.headline)
+                    Text(model.cpuFraction.map { $0.formatted(.percent.precision(.fractionLength(1))) } ?? "Aguardando a próxima amostra…").font(.largeTitle.monospacedDigit())
+                    if let fraction = model.cpuFraction { ProgressView(value: fraction) }
+                    Text("Uso agregado de todos os núcleos, calculado entre duas amostras.").font(.caption).foregroundStyle(.secondary)
+                }.monitorCard()
+                if let memory = sample.memory {
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("Memória física").font(.headline)
+                        LabeledContent("Instalada", value: bytes(memory.physical))
+                        LabeledContent("Ativa", value: bytes(memory.active))
+                        LabeledContent("Com fio (wired)", value: bytes(memory.wired))
+                        LabeledContent("Ocupada pelo compressor", value: bytes(memory.compressed))
+                        Text("Categorias informadas pelo kernel. Não representam uma estimativa de memória liberável.").font(.caption).foregroundStyle(.secondary)
+                    }.monitorCard()
+                }
+                if let disk = sample.disk {
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("Armazenamento · " + disk.name).font(.headline)
+                        LabeledContent("Usado", value: bytes(UInt64(disk.used)))
+                        LabeledContent("Disponível", value: bytes(UInt64(disk.available)))
+                        ProgressView(value: Double(disk.used), total: Double(disk.total))
+                    }.monitorCard()
+                }
+                ForEach(sample.issues, id: \.self) { Text($0).font(.caption).foregroundStyle(.orange) }
+                Text("Amostra: " + sample.date.formatted(date: .omitted, time: .standard)).font(.caption).foregroundStyle(.secondary)
+            } else { ProgressView("Lendo métricas do sistema…") }
+        }
+        .task {
+            while !Task.isCancelled {
+                await model.refresh()
+                do { try await Task.sleep(for: .seconds(2)) } catch { break }
+            }
+        }
+    }
+    private func bytes(_ value: UInt64) -> String { ByteCountFormatter.string(fromByteCount: Int64(value), countStyle: .memory) }
+}
+
+private extension View {
+    func monitorCard() -> some View {
+        padding(22).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 16))
+    }
+}

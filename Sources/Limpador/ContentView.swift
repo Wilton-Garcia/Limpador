@@ -379,6 +379,8 @@ struct ContentView: View {
                     Text("Clara").tag("light")
                     Text("Escura").tag("dark")
                 }.pickerStyle(.segmented)
+                NotificationPreferencesView()
+                Divider()
                 AnalysisExclusionPreferences()
                 Divider()
                 Toggle("Mostrar tamanhos compactos", isOn: $compactNumbers)

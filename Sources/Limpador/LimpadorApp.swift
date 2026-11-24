@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct LimpadorApp: App {
+    @NSApplicationDelegateAdaptor(LimpadorApplicationDelegate.self) private var delegate
     @AppStorage("appearance") private var appearance = "system"
     var body: some Scene {
         WindowGroup {

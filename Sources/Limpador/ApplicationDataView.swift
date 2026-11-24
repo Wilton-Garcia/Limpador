@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ApplicationDataView: View {
     let app: InstalledApplication
+    var identityMatches = 1
     @Environment(\.dismiss) private var dismiss
     @State private var report: ApplicationDataReport?
     @State private var error: String?
@@ -15,6 +16,7 @@ struct ApplicationDataView: View {
                     VStack(alignment: .leading, spacing: 7) {
                         HStack {
                             Text(item.title).font(.headline)
+                            Text(item.shared ? "Compartilhado / uso múltiplo" : "Exclusividade não comprovada").font(.caption).foregroundStyle(item.shared ? Color.orange : .secondary)
                             Spacer()
                             Text(item.state.rawValue)
                             if let bytes = item.bytes { Text(ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)) }
@@ -32,7 +34,7 @@ struct ApplicationDataView: View {
             else { FilePreviewView(url: item.url) }
         }
         .task(id: app.id) {
-            let task = Task.detached(priority: .utility) { try ApplicationDataAnalyzer.inspect(app) }
+            let task = Task.detached(priority: .utility) { try ApplicationDataAnalyzer.inspect(app, identityMatches: identityMatches) }
             do {
                 let value = try await withTaskCancellationHandler { try await task.value } onCancel: { task.cancel() }
                 try Task.checkCancellation(); report = value

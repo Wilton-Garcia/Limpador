@@ -18,19 +18,34 @@ struct ApplicationDataReport: Sendable {
 }
 
 enum ApplicationDataAnalyzer {
-    static func inspect(_ app: InstalledApplication, home: URL = FileManager.default.homeDirectoryForCurrentUser) throws -> ApplicationDataReport {
-        guard let identifier = app.bundleID, !identifier.isEmpty, identifier != ".", identifier != "..", !identifier.contains("/"), !identifier.contains("\\"), !identifier.contains("\0") else {
+    static func inspect(_ app: InstalledApplication, home: URL = FileManager.default.homeDirectoryForCurrentUser, identityMatches: Int = 1, declaredGroups: [String]? = nil) throws -> ApplicationDataReport {
+        guard let identifier = app.bundleID, ApplicationGroups.validComponent(identifier) else {
             return ApplicationDataReport(items: [], note: "O aplicativo não declarou um identificador utilizável. Não é possível atribuir dados pelo nome de exibição.")
         }
         let locations = [("Caches", "Caches/" + identifier), ("Suporte", "Application Support/" + identifier),
                          ("Preferências", "Preferences/" + identifier + ".plist"), ("Registros", "Logs/" + identifier),
                          ("Estado salvo", "Saved Application State/" + identifier + ".savedState"), ("Contêiner", "Containers/" + identifier)]
         let library = home.appendingPathComponent("Library")
-        let items = try locations.map { title, relative in
+        var items = try locations.map { title, relative in
             try Task.checkCancellation()
             return try inspectLocation(title: title, url: library.appendingPathComponent(relative))
         }
-        return ApplicationDataReport(items: items, note: "Candidatos associados por convenção ao identificador \(identifier). A coincidência do caminho não comprova propriedade exclusiva; aplicativos podem usar outros locais.")
+        var note = "Candidatos associados por convenção ao identificador \(identifier). A coincidência do caminho não comprova propriedade exclusiva; aplicativos podem usar outros locais."
+        if identityMatches > 1 {
+            items = items.map { item in var copy = item; copy.shared = true; return copy }
+            note += " Há \(identityMatches) instalações com esse identificador; os dados podem ser usados por todas."
+        }
+        do {
+            let groups = try declaredGroups ?? ApplicationGroups.declared(at: app.url)
+            guard groups.allSatisfy(ApplicationGroups.validComponent) else { throw CocoaError(.fileReadCorruptFile) }
+            for group in groups {
+                try Task.checkCancellation()
+                items.append(try inspectLocation(title: "Grupo compartilhado " + group, url: library.appendingPathComponent("Group Containers/" + group), shared: true))
+            }
+            note += " Os grupos compartilhados vêm dos entitlements declarados, sem atestar a assinatura ou exclusividade."
+        } catch is CancellationError { throw CancellationError() }
+        catch { note += " Não foi possível verificar grupos compartilhados: " + error.localizedDescription }
+        return ApplicationDataReport(items: items, note: note)
     }
 
     static func inspectLocation(title: String, url: URL, shared: Bool = false) throws -> AssociatedData {

@@ -14,6 +14,10 @@ struct ApplicationDataTests {
         #expect(report.items.first?.state == .present)
         #expect(report.items.first?.bytes == 2)
         #expect(report.items.filter { $0.state == .absent }.count == 5)
+        let shared = try ApplicationDataAnalyzer.inspect(app, home: root, identityMatches: 2, declaredGroups: ["group.example.shared"])
+        #expect(shared.items.allSatisfy { $0.shared })
+        #expect(shared.items.last?.url.lastPathComponent == "group.example.shared")
+        #expect(!ApplicationGroups.validComponent("../shared"))
         app.bundleID = "../escape"
         #expect(try ApplicationDataAnalyzer.inspect(app, home: root).items.isEmpty)
     }

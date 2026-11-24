@@ -21,7 +21,7 @@ struct RemovalPolicy: Sendable {
         guard let expected = file.identity else { return "Identidade não registrada. Analise novamente." }
         guard let current = try? FileIdentity.read(file.path), current == expected else { return "Arquivo alterado ou indisponível. Analise novamente." }
         guard current.owner == getuid() else { return "O arquivo pertence a outra conta." }
-        guard let realRoot = Self.canonical(root.path), let realFile = Self.canonical(file.path), realFile.hasPrefix(realRoot + "/") else { return "Arquivo fora da origem autorizada." }
+        guard let realRoot = FileLocation.canonical(root.path), let realFile = FileLocation.canonical(file.path), realFile.hasPrefix(realRoot + "/") else { return "Arquivo fora da origem autorizada." }
         let forbidden = ["/System", "/Library", "/usr", "/bin", "/sbin", "/private/etc", "/private/var/db", "/Applications"]
         if forbidden.contains(where: { realFile == $0 || realFile.hasPrefix($0 + "/") }) { return "Local essencial ou aplicativo protegido." }
         if URL(fileURLWithPath: realFile).pathComponents.contains(where: { $0.hasSuffix(".app") || $0 == ".Trash" || $0 == ".Trashes" }) { return "Pacote de aplicativo ou item já na Lixeira." }
@@ -30,11 +30,7 @@ struct RemovalPolicy: Sendable {
         if !associations.isEmpty { return "Associado a app em execução: " + associations.joined(separator: ", ") }
         return nil
     }
-    private static func canonical(_ path: String) -> String? {
-        guard let pointer = realpath(path, nil) else { return nil }
-        defer { free(pointer) }
-        return String(cString: pointer)
-    }
+
 }
 
 enum FileRemoval {

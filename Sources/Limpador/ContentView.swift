@@ -79,7 +79,7 @@ struct ContentView: View {
                 if let historicalReport { RemovalReportView(report: historicalReport) }
             }.padding(24).frame(minWidth: 740, minHeight: 500)
         }
-        .sheet(item: $dataApplication) { app in ApplicationDataView(app: app, identityMatches: mac.inventory?.apps.filter { $0.bundleID == app.bundleID }.count ?? 1) }
+        .sheet(item: $dataApplication) { app in ApplicationDataView(app: app, identityMatches: mac.inventory?.apps.filter { $0.bundleID == app.bundleID }.count ?? 1, history: mac.history) }
         .sheet(item: $inspectedApplication) { app in FileReviewView(root: app.url) }
         .task { if scanOnLaunch { await mac.refresh() } }
         .onDisappear { cleaner.cancel(); mac.cancel() }

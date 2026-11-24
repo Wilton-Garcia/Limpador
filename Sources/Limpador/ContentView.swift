@@ -13,6 +13,7 @@ private enum Destination: String, CaseIterable, Identifiable {
     case cleanup = "Limpeza"
     case storage = "Armazenamento"
     case apps = "Aplicativos"
+    case history = "Histórico"
     case settings = "Preferências"
     var id: String { rawValue }
     var symbol: String {
@@ -21,6 +22,7 @@ private enum Destination: String, CaseIterable, Identifiable {
         case .cleanup: "sparkles"
         case .storage: "internaldrive"
         case .apps: "square.stack.3d.up"
+        case .history: "clock.arrow.circlepath"
         case .settings: "slider.horizontal.3"
         }
     }
@@ -67,6 +69,7 @@ struct ContentView: View {
                         case .cleanup: cleanup
                         case .storage: storage
                         case .apps: applications
+                        case .history: history
                         case .settings: settings
                         }
                         demoFooter
@@ -362,6 +365,33 @@ struct ContentView: View {
 
     private func bytes(_ count: Int64) -> String {
         ByteCountFormatter.string(fromByteCount: count, countStyle: .file)
+    }
+
+    private var history: some View {
+        Group {
+            heading("Cada cuidado fica registrado.", subtitle: "Histórico local de análises. Limpezas aparecerão aqui quando forem implementadas.")
+            if let error = mac.history.error { notice("Histórico", detail: error) }
+            if mac.history.records.isEmpty {
+                ContentUnavailableView("Nenhuma análise registrada", systemImage: "clock", description: Text("Atualize os dados do Mac para registrar uma análise."))
+            } else {
+                LazyVStack(spacing: 0) {
+                    ForEach(mac.history.records) { record in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(record.scope).font(.headline)
+                                Text(record.date.formatted(date: .abbreviated, time: .standard)).font(.caption).foregroundStyle(Palette.muted)
+                            }
+                            Spacer()
+                            VStack(alignment: .trailing, spacing: 6) {
+                                Text(record.outcome)
+                                if let count = record.itemCount { Text("\(count) itens").font(.caption).foregroundStyle(Palette.muted) }
+                            }
+                        }.padding(20)
+                        Divider()
+                    }
+                }.card()
+            }
+        }
     }
 
     private var settings: some View {

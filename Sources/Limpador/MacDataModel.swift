@@ -2,6 +2,7 @@ import SwiftUI
 
 @MainActor @Observable
 final class MacDataModel {
+    let history = AnalysisHistory()
     var disk: DiskSnapshot?
     var diskError: String?
     var inventory: ApplicationInventory?
@@ -37,9 +38,11 @@ final class MacDataModel {
             }
             try Task.checkCancellation()
             inventory = result
+            history.record(scope: "Aplicativos", outcome: result.issues.isEmpty && result.apps.allSatisfy { $0.size.complete } ? "Concluída" : "Parcial", itemCount: result.apps.count, bytes: result.apps.reduce(0) { $0 + $1.size.bytes })
         } catch is CancellationError {
+            history.record(scope: "Aplicativos", outcome: "Cancelada")
             inventoryError = "Leitura interrompida. Atualize para tentar novamente."
-        } catch { inventoryError = error.localizedDescription }
+        } catch { inventoryError = error.localizedDescription; history.record(scope: "Aplicativos", outcome: "Falha: " + error.localizedDescription) }
     }
 
     func cancel() {

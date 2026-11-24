@@ -1,6 +1,7 @@
 import Foundation
 import Darwin
 import Observation
+import AppKit
 
 struct CPUTicks: Sendable {
     let user: UInt32
@@ -24,6 +25,7 @@ struct SystemSample: Sendable {
     let memory: MemoryMetrics?
     let disk: DiskSnapshot?
     let batteries: [BatteryMetric]?
+    let processes: [ProcessResource]
     let date: Date
     let issues: [String]
 }
@@ -54,7 +56,7 @@ enum SystemMetrics {
         guard status == KERN_SUCCESS, host_page_size(host, &page) == KERN_SUCCESS else { throw NSError(domain: NSMachErrorDomain, code: Int(status)) }
         return MemoryMetrics(physical: ProcessInfo.processInfo.physicalMemory, active: UInt64(info.active_count) * UInt64(page), wired: UInt64(info.wire_count) * UInt64(page), compressed: UInt64(info.compressor_page_count) * UInt64(page))
     }
-    static func sample() -> SystemSample {
+    static func sample(processes: [ProcessCandidate] = []) -> SystemSample {
         var issues: [String] = []
         var cpu: CPUTicks?, memory: MemoryMetrics?, disk: DiskSnapshot?
         var batteries: [BatteryMetric]?
@@ -62,7 +64,7 @@ enum SystemMetrics {
         do { memory = try self.memory() } catch { issues.append("Memória: " + error.localizedDescription) }
         do { disk = try DiskSnapshot.read() } catch { issues.append("Disco: " + error.localizedDescription) }
         do { batteries = try BatteryMetrics.read() } catch { issues.append("Bateria: " + error.localizedDescription) }
-        return SystemSample(cpu: cpu, memory: memory, disk: disk, batteries: batteries, date: Date(), issues: issues)
+        return SystemSample(cpu: cpu, memory: memory, disk: disk, batteries: batteries, processes: processes.map(ProcessResources.read), date: Date(), issues: issues)
     }
 }
 
@@ -70,11 +72,18 @@ enum SystemMetrics {
 final class SystemMonitor {
     var sample: SystemSample?
     var cpuFraction: Double?
+    var processCPU: [String: Double] = [:]
     func refresh() async {
         let previous = sample?.cpu
-        let next = await Task.detached(priority: .utility) { SystemMetrics.sample() }.value
+        let candidates = NSWorkspace.shared.runningApplications.map { ProcessCandidate(pid: $0.processIdentifier, name: $0.localizedName ?? "Aplicativo") }
+        let previousProcesses = Dictionary(uniqueKeysWithValues: (sample?.processes ?? []).map { ($0.id, $0) })
+        let next = await Task.detached(priority: .utility) { SystemMetrics.sample(processes: candidates) }.value
         guard !Task.isCancelled else { return }
         cpuFraction = next.cpu.flatMap { tick in previous.flatMap { tick.utilization(since: $0) } }
+        processCPU = Dictionary(uniqueKeysWithValues: next.processes.compactMap { process in
+            guard let previous = previousProcesses[process.id], let cpu = process.cpu(since: previous) else { return nil }
+            return (process.id, cpu)
+        })
         sample = next
     }
 }

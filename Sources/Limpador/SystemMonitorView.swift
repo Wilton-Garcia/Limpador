@@ -44,6 +44,24 @@ struct SystemMonitorView: View {
                         }
                     }.monitorCard()
                 }
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("Aplicativos em execução").font(.headline)
+                    Text("Processos principais anunciados pelo NSWorkspace. Não inclui todos os serviços nem soma processos auxiliares. CPU por núcleo: pode ultrapassar 100%. I/O é cumulativo desde o início do processo.").font(.caption).foregroundStyle(.secondary)
+                    ForEach(sample.processes.sorted { ($0.residentBytes ?? 0) > ($1.residentBytes ?? 0) }) { process in
+                        VStack(alignment: .leading, spacing: 5) {
+                            HStack {
+                                Text(process.name)
+                                Text("PID \(process.pid)").font(.caption).foregroundStyle(.secondary)
+                                Spacer()
+                                Text(model.processCPU[process.id].map { $0.formatted(.percent.precision(.fractionLength(1))) } ?? "CPU —")
+                                Text(process.residentBytes.map(bytes) ?? "Memória —")
+                            }
+                            if let issue = process.issue { Text(issue).font(.caption).foregroundStyle(.orange) }
+                            else { Text("Leitura: " + (process.readBytes.map(bytes) ?? "—") + " · Escrita: " + (process.writtenBytes.map(bytes) ?? "—")).font(.caption).foregroundStyle(.secondary) }
+                        }
+                        Divider()
+                    }
+                }.monitorCard()
                 ForEach(sample.issues, id: \.self) { Text($0).font(.caption).foregroundStyle(.orange) }
                 Text("Amostra: " + sample.date.formatted(date: .omitted, time: .standard)).font(.caption).foregroundStyle(.secondary)
             } else { ProgressView("Lendo métricas do sistema…") }

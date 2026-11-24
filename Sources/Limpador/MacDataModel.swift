@@ -53,6 +53,7 @@ final class MacDataModel {
 
 struct ApplicationRow: View {
     let app: InstalledApplication
+    var onInspect: () -> Void = {}
     @State private var image: NSImage?
     var body: some View {
         HStack(spacing: 14) {
@@ -74,6 +75,7 @@ struct ApplicationRow: View {
                 Text(app.size.complete ? "Pacote · tamanho lógico" : "Parcial · \(app.size.unreadableEntries) falhas")
                     .font(.system(size: 10)).foregroundStyle(app.size.complete ? Color.secondary : .orange)
             }
+            Button("Arquivos", action: onInspect).buttonStyle(.borderless)
             Button { NSWorkspace.shared.activateFileViewerSelecting([app.url]) } label: {
                 Image(systemName: "folder")
             }.buttonStyle(.borderless).help("Mostrar no Finder").accessibilityLabel("Mostrar \(app.name) no Finder")

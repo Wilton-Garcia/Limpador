@@ -49,6 +49,7 @@ struct ContentView: View {
     @State private var hasResults = false
     @State private var selected: Set<String> = ["cache", "logs"]
     @State private var search = ""
+    @State private var inspectedApplication: InstalledApplication?
     @State private var showRemovalNotice = false
     @State private var compactNumbers = true
     private var isScanning: Bool { scanTask != nil }
@@ -84,6 +85,7 @@ struct ContentView: View {
         } message: {
             Text("Os resultados são exemplos. Nenhum arquivo foi acessado ou removido. A limpeza real estará disponível quando o motor de análise for implementado.")
         }
+        .sheet(item: $inspectedApplication) { app in FileReviewView(root: app.url) }
         .task { await mac.refresh() }
         .onDisappear { cancelScan(); mac.cancel() }
     }
@@ -322,7 +324,7 @@ struct ContentView: View {
                 } else {
                     LazyVStack(spacing: 0) {
                         ForEach(filtered) { app in
-                            ApplicationRow(app: app)
+                            ApplicationRow(app: app) { inspectedApplication = app }
                             if app.id != filtered.last?.id { Divider() }
                         }
                     }.card()
